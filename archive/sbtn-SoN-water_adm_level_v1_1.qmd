@@ -22,7 +22,8 @@ pacman::p_load(here, dplyr, readr, readxl, sf, tidyr, terra, fasterize, purrr, e
 
 ```{r}
 sharepoint_dir <- "C:\\Users\\Liam.Bailey\\wwfgermany"
-temp_raster_dir <- dir.create(here::here("../outputs", "temp_rasters"))
+temp_raster_dir <- here::here("../outputs", "temp_rasters")
+dir.create(temp_raster_dir)
 ```
 
 ## 2. Load data
@@ -43,12 +44,28 @@ aqueduct_adm1 <- read_excel(file.path(sharepoint_dir, "FB-OuR-Daten - WRF", "ws_
                             sheet = "province_baseline")
 ```
 
+Also read in GADM (v3.6) data and join with Aqueduct data. This helps deal with corruption/encoding issues in Aqueduct province names.
+
+```{r}
+GADM_adm1_sf <- read_sf(file.path(sharepoint_dir, "FB-OuR-Daten - WRF", "ws_gis", "1_library", "boundaries_gadm", "gadm36_Prov.shp"))
+
+aqueduct_adm1 <- aqueduct_adm1 |> 
+  rename(NAME_1_WRI = name_1) |> 
+  left_join(GADM_adm1_sf |> 
+              st_drop_geometry() |> 
+              select(GID_0, GID_1, NAME_1),
+            by = c("gid_0" = "GID_0",
+                   "gid_1" = "GID_1"))
+```
+
 *National level administrative division*
 
 ```{r}
 ## We need to use OUR ESRI updated boundaries for RFS
 ## Rather than GADM borders that Rafael used
-adm0 <- st_read(file.path(sharepoint_dir, "FB-OuR-Daten - WRF", "ws_gis", "1_library", "boundaries_esri", "world_adm0_esri_edited_diss.shp"))
+adm0 <- st_read(file.path(sharepoint_dir, "FB-OuR-Daten - WRF", "ws_gis", "1_library", "boundaries_esri", "world_adm0_esri_edited_diss.shp")) |> 
+  ## Renamed to match column in WRI data
+  rename(GID_0 = ISO_3DIGIT)
 ```
 
 *Sub-national level administrative division*
@@ -62,27 +79,35 @@ adm1 <- st_read(file.path(sharepoint_dir, "FB-OuR-Daten - WRF", "ws_gis", "1_lib
 ## 3. Rasterize SoN water layers
 
 ```{r}
+## Function to fasterize input data
 fasterize_son_water <- function(var){
   fasterize(son_water, raster(son_water, res = 0.01), field = var, fun = "max") |>
     writeRaster(file.path(temp_raster_dir, paste0(var, ".tif")), overwrite = TRUE)
 }
 
-map(list("wdp_n", "wsb_n", "cep_n", "nox_n", "pgp_n"), fasterize_son_water)
+## Check if rasters are already created
+current_rasters <- gsub(x = list.files(temp_raster_dir, pattern = ".tif"), replacement = "", pattern = ".tif")
+missing_rasters <- c("wdp_n", "wsb_n", "cep_n", "nox_n", "pgp_n")[!c("wdp_n", "wsb_n", "cep_n", "nox_n", "pgp_n") %in% current_rasters]
+
+## Create rasters for any files that are missing
+if (length(missing_rasters) > 0){
+  map(list(missing_rasters), fasterize_son_water) 
+}
 ```
 
 ```{r}
 list_wa <- list(
-  rast(here("outputs", "temp_raster", "wdp_n.tif")),
-  rast(here("outputs", "temp_raster", "wsb_n.tif"))
+  rast(file.path(temp_raster_dir, "wdp_n.tif")),
+  rast(file.path(temp_raster_dir, "wsb_n.tif"))
 ) |> 
   set_names("wdp_n", "wsb_n")
 ```
 
 ```{r}
 list_wp <- list(
-  rast(here("outputs", "temp_raster", "cep_n.tif")),
-  rast(here("outputs", "temp_raster", "nox_n.tif")),
-  rast(here("outputs", "temp_raster", "pgp_n.tif"))
+  rast(file.path(temp_raster_dir, "cep_n.tif")),
+  rast(file.path(temp_raster_dir, "nox_n.tif")),
+  rast(file.path(temp_raster_dir, "pgp_n.tif"))
 ) |> 
   set_names("cep_n", "nox_n", "pgp_n")
 ```
@@ -93,13 +118,13 @@ list_wp <- list(
 
 ```{r}
 waterGap3_consumption <- read_csv(
-  file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "Data", "WaterDepletion_WaterGap3_2000", "SectorConsumption_m3_annual.csv"),
+  file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "01_Data", "WaterDepletion_WaterGap3_2000", "SectorConsumption_m3_annual.csv"),
   col_names = c("subBas_ID", "domestic", "manufacturing", "electric", "irrigation", "livestock")
 )
 
 waterGap3_consumption <- read_sf(file.path(sharepoint_dir,
                                            "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis",
-                                           "Data", "WaterDepletion_WaterGap3_2000", "WaterGap3Shape",
+                                           "01_Data", "WaterDepletion_WaterGap3_2000", "WaterGap3Shape",
                                            "WaterGap3_AllBasins.shp")) |>
   dplyr::select(subBas_ID = ContUID) |>
   inner_join(waterGap3_consumption, by = "subBas_ID") |>
@@ -115,16 +140,28 @@ waterGap3_consumption <- read_sf(file.path(sharepoint_dir,
     tot = total
   )
 
+```
+
+```{r}
+## Function to fasterize data
 fasterize_vars <- function(var){
   fasterize(waterGap3_consumption, raster(waterGap3_consumption, res = 0.01), field = var, fun = "max") |>
     writeRaster(file.path(temp_raster_dir, paste0("wdp_weight_", var, ".tif")), overwrite = TRUE)
 }
 
-map(list("dom", "ind", "irr", "liv", "tot"), fasterize_vars)
+## Check if rasters are already created
+current_rasters <- gsub(x = list.files(temp_raster_dir, pattern = ".tif"), replacement = "", pattern = "wdp_weight_|.tif")
+missing_rasters <- c("dom", "ind", "irr", "liv", "tot")[!c("dom", "ind", "irr", "liv", "tot") %in% current_rasters]
+
+## Create rasters for any files that are missing
+if (length(missing_rasters) > 0){
+  map(list(missing_rasters), fasterize_vars) 
+}
 ```
 
 ```{r}
-wdp_weights <- list.files(temp_raster_dir, pattern = "wdp_weight_", recursive = TRUE) |> 
+wdp_weights <- list.files(temp_raster_dir, pattern = "wdp_weight_",
+                          recursive = TRUE, full.names = TRUE) |> 
   map(rast) |> 
   set_names("dom", "ind", "irr", "liv", "tot")
 ```
@@ -133,9 +170,9 @@ wdp_weights <- list.files(temp_raster_dir, pattern = "wdp_weight_", recursive = 
 
 ```{r}
 wsb_weights <- list(
-  rast(file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "Data", "BlueWaterFootprint_MekonnenHoekstra_2016", "WFbl_AgDomInd", "WFbl_m3yr", "wfbl_agr_m3y", "w001001.adf")),
-  rast(file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "Data", "BlueWaterFootprint_MekonnenHoekstra_2016", "WFbl_AgDomInd", "WFbl_m3yr", "wfbl_dom_m3y", "w001001.adf")),
-  rast(file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "Data", "BlueWaterFootprint_MekonnenHoekstra_2016", "WFbl_AgDomInd", "WFbl_m3yr", "wfbl_ind_m3y", "w001001.adf"))
+  rast(file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "01_Data", "BlueWaterFootprint_MekonnenHoekstra_2016", "WFbl_AgDomInd", "WFbl_m3yr", "wfbl_agr_m3y", "w001001.adf")),
+  rast(file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "01_Data", "BlueWaterFootprint_MekonnenHoekstra_2016", "WFbl_AgDomInd", "WFbl_m3yr", "wfbl_dom_m3y", "w001001.adf")),
+  rast(file.path(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "01_Data", "BlueWaterFootprint_MekonnenHoekstra_2016", "WFbl_AgDomInd", "WFbl_m3yr", "wfbl_ind_m3y", "w001001.adf"))
 ) |> 
   set_names("agr", "dom", "ind")
 
@@ -158,7 +195,7 @@ wsb_weights$tot <- terra::rast(
 ### 4.3. Global Cropland Extent (2019) [Potapov et al. 2021](https://glad.umd.edu/dataset/croplands)
 
 ```{r}
-wp_weights <- rast(here("inputs", "global_cropland_extent", "Global_cropland_3km_2019.tif"))
+wp_weights <- rast(here(sharepoint_dir, "FB-OuR-Daten - 10_RiskSuite", "Data_and_Analysis", "01_Data", "CroplandExtent_Potapov_2021", "Global_cropland_3km_2019.tif"))
 ```
 
 ## 5. Spatial aggregation to administrative divisions
@@ -185,18 +222,19 @@ bws_adm0 <- aqueduct_adm0 |>
   pivot_wider(names_from = weight, values_from = score, names_prefix = "bws_") |> 
   relocate(GID_0, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot)
 
-bws_adm0 <- bws_adm0 |> 
-  bind_rows(
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z01"),
-    filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z02"),
-    filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z03"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z04"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z05"),
-    filter(bws_adm0, GID_0 == "PAK") |> mutate(GID_0 = "Z06"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z07"),
-    filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z08"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z09")
-  )
+## Don't try and fill in disputed areas...this is too complex
+# bws_adm0 <- bws_adm0 |> 
+#   bind_rows(
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z01"),
+#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z02"),
+#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z03"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z04"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z05"),
+#     filter(bws_adm0, GID_0 == "PAK") |> mutate(GID_0 = "Z06"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z07"),
+#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z08"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z09")
+#   )
 ```
 
 ```{r}
@@ -261,56 +299,115 @@ bws_adm1 <- aqueduct_adm1 |>
     # rescale values 0-5 to 1-5 applying (new_max - new_min) * (x - min_old) / (max_old - min_old) + min_new
     score = (5-1) * ((score-0) / (5-0)) + 1 
   ) |> 
-  select(GID_1 = gid_1, weight, score) |> 
+  select(GID_0 = gid_0, GID_1 = gid_1, NAME_0 = name_0, NAME_1, weight, score) |> 
   pivot_wider(names_from = weight, values_from = score, names_prefix = "bws_") |> 
-  relocate(GID_1, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot) |> 
-  mutate(GID_1 = case_when(
-    GID_1 == "IND.14_1" ~ "Z01.14_1",
-    GID_1 == "CHN.28_1" ~ "Z02.28_1",
-    GID_1 == "CHN.29_1" ~ "Z03.29_1",
-    GID_1 == "IND.13_1" ~ "Z04.13_1",
-    GID_1 == "IND.35_1" ~ "Z05.35_1",
-    GID_1 == "PAK.1_1" ~ "Z06.1_1",
-    GID_1 == "PAK.6_1" ~ "Z06.6_1",
-    GID_1 == "IND.3_1" ~ "Z07.3_1",
-    .default = GID_1
-  ))
+  relocate(GID_0, NAME_0, GID_1, NAME_1, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot)
 
-bws_adm1 <- bws_adm1 |> 
-  bind_rows(
-    filter(bws_adm1, GID_1 == "Z02.28_1") |> mutate(GID_1 = "Z03.28_1"),
-    filter(bws_adm1, GID_1 == "Z03.29_1") |> mutate(GID_1 = "Z08.29_1"),
-    filter(bws_adm1, GID_1 == "Z04.13_1") |> mutate(GID_1 = "Z09.13_1"),
-    filter(bws_adm1, GID_1 == "Z05.35_1") |> mutate(GID_1 = "Z09.35_1")
-  )
+## Don't try and deal with disputed areas
+# |> 
+#   mutate(GID_1 = case_when(
+#     GID_1 == "IND.14_1" ~ "Z01.14_1",
+#     GID_1 == "CHN.28_1" ~ "Z02.28_1",
+#     GID_1 == "CHN.29_1" ~ "Z03.29_1",
+#     GID_1 == "IND.13_1" ~ "Z04.13_1",
+#     GID_1 == "IND.35_1" ~ "Z05.35_1",
+#     GID_1 == "PAK.1_1" ~ "Z06.1_1",
+#     GID_1 == "PAK.6_1" ~ "Z06.6_1",
+#     GID_1 == "IND.3_1" ~ "Z07.3_1",
+#     .default = GID_1
+#   ))
+# 
+# bws_adm1 <- bws_adm1 |> 
+#   bind_rows(
+#     filter(bws_adm1, GID_1 == "Z02.28_1") |> mutate(GID_1 = "Z03.28_1"),
+#     filter(bws_adm1, GID_1 == "Z03.29_1") |> mutate(GID_1 = "Z08.29_1"),
+#     filter(bws_adm1, GID_1 == "Z04.13_1") |> mutate(GID_1 = "Z09.13_1"),
+#     filter(bws_adm1, GID_1 == "Z05.35_1") |> mutate(GID_1 = "Z09.35_1")
+#   )
+```
+
+Need to join RFS admin areas (ESRI) and WRI admin areas (GADM). This is made more difficult because ESRI layers and GADM admin layers don't have a single unified identifier. To create an ID that can match to WRI data, we'll need to do a spatial join to find the GADM GID_1 ID (i.e. state/province) that best matches the ESRI boundaries. Findest the largest overlap between GADM (v3.6) and ESRI layers.
+
+```{r}
+## There are 77 cases where there is no matching GID_1 ID (either because there is no spatial match or no GID_1 ID exists)
+## Most of these are in the Marshall Islands
+sf::sf_use_s2(FALSE)
+spatial_join <- adm1 |> 
+  sf::st_join(GADM_adm1_sf |> 
+                select(GID_0, GID_1), largest = TRUE)
+
+## Of those that have a GID_1 ID
+## 74 don't find any match within the BWS data
+spatial_join_bws <- spatial_join |>
+  ## Don't need GID_0 because it's implicit in GID_1
+  select(COUNTRY, ISO_3DIGIT, GID_0, NAME, GID_1) |> 
+  left_join(bws_adm1 |> 
+              select(GID_1, NAME_1, starts_with("bws")),
+            by = c("GID_1"))
 ```
 
 ```{r}
-son_water_adm1 <- adm1 |>
-  # baseline water stress (bws)
-  left_join(bws_adm1, by = "GID_1") |> 
+## Could any of these 151 cases be matched with string distance techniques?
+unmatched <- spatial_join_bws |> 
+  filter(is.na(NAME_1)) |> 
+  st_drop_geometry() |> 
+  select(ISO_3DIGIT, GID_0, NAME_0 = NAME)
+
+spatial_namejoin_bws_osa1 <- unmatched |> 
+  mutate(NAME_clean = stringr::str_remove_all(stringi::stri_trans_general(NAME_0, "Latin-ASCII"), "`|'|-| "),
+         ## Some areas how no matching GID
+         GID_combo = case_when(is.na(GID_0) ~ ISO_3DIGIT,
+                               TRUE ~ GID_0)) |> 
+  fuzzyjoin::stringdist_left_join(bws_adm1 |> 
+                                    mutate(NAME_clean = stringr::str_remove_all(stringi::stri_trans_general(NAME_1, "Latin-ASCII"), "`|'|-| ")) |> 
+                                    select(GID_0, NAME_clean, starts_with("bws")),
+                                  by = c("GID_combo" = "GID_0",
+                                         "NAME_clean"), max_dist = 1)
+
+spatial_namejoin_bws_soundex <- unmatched |> 
+  mutate(NAME_clean = stringr::str_remove_all(stringi::stri_trans_general(NAME_0, "Latin-ASCII"), "`|'|-| "),
+         ## Some areas how no matching GID
+         GID_combo = case_when(is.na(GID_0) ~ ISO_3DIGIT,
+                               TRUE ~ GID_0)) |> 
+  fuzzyjoin::stringdist_left_join(bws_adm1 |> 
+                                    mutate(NAME_clean = stringr::str_remove_all(stringi::stri_trans_general(NAME_1, "Latin-ASCII"), "`|'|-| ")),
+                                  by = c("GID_combo" = "GID_0",
+                                         "NAME_clean"),
+                                  method = "soundex")
+
+## No successful matches. We have to accept that these are just NAs
+```
+
+```{r}
+## Now that we've joined this other data, we can use create the admin1 aggregates
+adm1_joined <- spatial_join_bws |> 
+  select(COUNTRY, ISO_3DIGIT, GID_0, NAME, GID_1, starts_with("bws")) |> 
+  ## Make a rowID that can be used to join data back
+  mutate(rowID = 1:n())
+
+son_water_adm1 <- adm1_joined |> 
   # water depletion (wdp)
-  left_join(exact_extract(list_wa$wdp_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(wdp_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$dom, wdp_dom, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$ind, wdp_ind, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$irr, wdp_irr, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$liv, wdp_liv, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$tot, wdp_tot, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wa$wdp_n, adm1_joined, fun = "mean", append_cols = "rowID", progress = TRUE) |> rename(wdp_n = mean), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$dom, wdp_dom, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$ind, wdp_ind, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$irr, wdp_irr, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$liv, wdp_liv, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$tot, wdp_tot, adm1_joined, "rowID"), by = "rowID") |>
   # blue water scarcity (wsb)
-  left_join(exact_extract(list_wa$wsb_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(wsb_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$agr, wsb_agr, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$dom, wsb_dom, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$ind, wsb_ind, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$tot, wsb_tot, adm1, "GID_1"), by = "GID_1") |> 
+  left_join(exact_extract(list_wa$wsb_n, adm1_joined, fun = "mean", append_cols = "rowID", progress = TRUE) |> rename(wsb_n = mean), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$agr, wsb_agr, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$dom, wsb_dom, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$ind, wsb_ind, adm1_joined, "rowID"), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wa$wsb_n, wsb_weights$tot, wsb_tot, adm1_joined, "rowID"), by = "rowID") |> 
   # coastal eutrophication potential (cep)
-  left_join(exact_extract(list_wp$cep_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(cep_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wp$cep_n, wp_weights, cep_agr, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wp$cep_n, adm1_joined, fun = "mean", append_cols = "rowID", progress = TRUE) |> rename(cep_n = mean), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wp$cep_n, wp_weights, cep_agr, adm1_joined, "rowID"), by = "rowID") |>
   # nitrate-nitrite concentration (nox)
-  left_join(exact_extract(list_wp$nox_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(nox_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wp$nox_n, adm1_joined, fun = "mean", append_cols = "rowID", progress = TRUE) |> rename(nox_n = mean), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm1_joined, "rowID"), by = "rowID") |>
   # periphyton growth potential (pgp)
-  left_join(exact_extract(list_wp$pgp_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(pgp_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wp$pgp_n, adm1_joined, fun = "mean", append_cols = "rowID", progress = TRUE) |> rename(pgp_n = mean), by = "rowID") |>
+  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm1_joined, "rowID"), by = "rowID") |>
   
   mutate(across(where(is.numeric), ~ round(.x, 1))) |> 
   rowwise() |> 
@@ -381,7 +478,7 @@ write.xlsx(list(
 *National level*
 
 ```{r}
-write_rds(son_water_adm0, here("outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
+saveRDS(son_water_adm0, here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
 ```
 
 ```{r}
@@ -391,7 +488,7 @@ write_rds(son_water_adm0, here("outputs", "adm_level", "sbtn_son_water_v1_1_adm0
 *Sub-national level*
 
 ```{r}
-write_rds(son_water_adm1, here("outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
+saveRDS(son_water_adm1, here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
 ```
 
 ```{r}
