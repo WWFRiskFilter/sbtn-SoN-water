@@ -498,8 +498,8 @@ saveRDS(son_water_adm1, here::here("../outputs", "adm_level", "sbtn_son_water_v1
 ## 7. View outputs
 
 ```{r}
-son_water_adm0 <- read_rds(here("outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
-son_water_adm1 <- read_rds(here("outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
+son_water_adm0 <- readRDS(here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
+son_water_adm1 <- readRDS(here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
 ```
 
 ```{r}
