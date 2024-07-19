@@ -126,8 +126,8 @@ h6 <- st_read(file.path(sharepoint_dir, "FB-OuR-Daten - WRF", "ws_gis", "1_libra
 #### 2.3.3. Export / Fast load
 
 ```{r}
-# write_rds(h6, here("../outputs", "h6", "h6.rds"))
-h6 <- read_rds(here("../outputs", "h6", "h6.rds"))
+# write_rds(h6, here("/outputs", "h6", "h6.rds"))
+h6 <- read_rds(here("/outputs", "h6", "h6.rds"))
 ```
 
 ## 3. Clean and Classify data to 1-5 values
@@ -228,7 +228,7 @@ wa_n <- h6 |>
 ```
 
 ```{r}
-write_rds(wa_n, here("../outputs", "h6", "wa_n.rds"))
+write_rds(wa_n, here("/outputs", "h6", "wa_n.rds"))
 ```
 
 ### 3.2. Water Pollution
@@ -362,7 +362,7 @@ wp_n <- h6 |>
 ```
 
 ```{r}
-write_rds(wp_n, here("../outputs", "h6", "wp_n.rds"))
+write_rds(wp_n, here("/outputs", "h6", "wp_n.rds"))
 ```
 
 ## 4. Identify the value for the unified layer
@@ -370,7 +370,7 @@ write_rds(wp_n, here("../outputs", "h6", "wp_n.rds"))
 ### 4.1. Max of Water Availability
 
 ```{r}
-wa_n <- read_rds(here("../outputs", "h6", "wa_n.rds"))
+wa_n <- read_rds(here("/outputs", "h6", "wa_n.rds"))
 ```
 
 ```{r}
@@ -387,7 +387,7 @@ son_wa <- wa_n |>
 ### 4.2. Max of Water Pollution
 
 ```{r}
-wp_n <- read_rds(here("../outputs", "h6", "wp_n.rds"))
+wp_n <- read_rds(here("/outputs", "h6", "wp_n.rds"))
 ```
 
 ```{r}
@@ -432,7 +432,7 @@ son_water |>
 ## 6. Export
 
 ```{r}
-write_rds(son_water, here("../outputs", "h6", "sbtn_son_water_v2.rds"))
+write_rds(son_water, here("/outputs", "h6", "sbtn_son_water_v2.rds"))
 ```
 
 ```{r}

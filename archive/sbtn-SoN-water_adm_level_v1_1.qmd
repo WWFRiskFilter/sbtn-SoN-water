@@ -22,7 +22,7 @@ pacman::p_load(here, dplyr, readr, readxl, sf, tidyr, terra, fasterize, purrr, e
 
 ```{r}
 sharepoint_dir <- "C:\\Users\\Liam.Bailey\\wwfgermany"
-temp_raster_dir <- here::here("../outputs", "temp_rasters")
+temp_raster_dir <- here::here("/outputs", "temp_rasters")
 dir.create(temp_raster_dir)
 ```
 
@@ -31,7 +31,7 @@ dir.create(temp_raster_dir)
 ```{r}
 ## We want to read in data at h6 level
 ## No need to use h7 level for this aggregation
-son_water <- read_rds(here("../outputs", "h6", "sbtn_son_water_v2.rds"))
+son_water <- read_rds(here("/outputs", "h6", "sbtn_son_water_v2.rds"))
 ```
 
 ```{r}
@@ -472,13 +472,13 @@ write.xlsx(list(
     mutate(notes = if_else(GID_0 %in% c("RUS", "CAN", "CHN", "USA", "BRA", "AUS", "IND", "ARG", "KAZ", "DZA"),
                            "Not recommended to be used. Average values for such large country are not representative. Use values from sub-national level instead.", NA)), 
   "Sub-national level" = st_drop_geometry(son_water_adm1)
-), file = here("outputs", "adm_level", "sbtn_son_water_v1_1_adm_level.xlsx"), rowNames = FALSE)
+), file = here("/outputs", "adm_level", "sbtn_son_water_v1_1_adm_level.xlsx"), rowNames = FALSE)
 ```
 
 *National level*
 
 ```{r}
-saveRDS(son_water_adm0, here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
+saveRDS(son_water_adm0, here::here("/outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
 ```
 
 ```{r}
@@ -488,7 +488,7 @@ saveRDS(son_water_adm0, here::here("../outputs", "adm_level", "sbtn_son_water_v1
 *Sub-national level*
 
 ```{r}
-saveRDS(son_water_adm1, here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
+saveRDS(son_water_adm1, here::here("/outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
 ```
 
 ```{r}
@@ -498,8 +498,8 @@ saveRDS(son_water_adm1, here::here("../outputs", "adm_level", "sbtn_son_water_v1
 ## 7. View outputs
 
 ```{r}
-son_water_adm0 <- readRDS(here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
-son_water_adm1 <- readRDS(here::here("../outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
+son_water_adm0 <- readRDS(here::here("/outputs", "adm_level", "sbtn_son_water_v1_1_adm0.rds"))
+son_water_adm1 <- readRDS(here::here("/outputs", "adm_level", "sbtn_son_water_v1_1_adm1.rds"))
 ```
 
 ```{r}

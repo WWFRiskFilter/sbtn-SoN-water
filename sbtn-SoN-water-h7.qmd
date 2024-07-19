@@ -20,7 +20,7 @@ sharepoint_dir <- "C:\\Users\\Liam.Bailey\\wwfgermany\\FB-OuR-Daten - WRF"
 
 ```{r}
 ## Generated in sbtn-SoN-water.qmd
-sbtn <- read_rds(here("../outputs", "h6", "sbtn_son_water_v2.rds")) |>
+sbtn <- read_rds(here("/outputs", "h6", "sbtn_son_water_v2.rds")) |>
   ## We are extracting the *individual layers*
   ## We will also extract the max value (i.e. unified layer) just for comparability to old results
   select(wa_max, bws_n, wdp_n, wsb_n, wp_max, cep_n, nox_n, pgp_n)
@@ -97,6 +97,6 @@ data_to_export |>
 
 ```{r}
 data_to_export |>
-  st_write(here("../outputs", "h7", "h7_sbtn.gpkg"),
+  st_write(here("/outputs", "h7", "h7_sbtn.gpkg"),
            layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
 ```
