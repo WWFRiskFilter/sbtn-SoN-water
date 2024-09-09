@@ -34,7 +34,7 @@ sharepoint_dir <- "C:\\Users\\Liam.Bailey\\wwfgermany\\FB-OuR-Daten - WRF"
 
 #### 2.1.1. Baseline Water Stress [Kuzma et al. 2023](https://www.wri.org/data/aqueduct-global-maps-40-data)
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\aqueduct_4.0'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\aqueduct\_4.0'
 
 ```{r}
 bws <- st_read(file.path(sharepoint_dir, "ws_gis", "1_library", "aqueduct_4.0", "aqueduct-4-0-water-risk-data", "Aqueduct40_waterrisk_download_Y2023M07D05", "GDB", "Aq40_Y2023D07M05.gdb"), layer = "baseline_annual")
@@ -43,7 +43,7 @@ bws <- st_read(file.path(sharepoint_dir, "ws_gis", "1_library", "aqueduct_4.0", 
 
 #### 2.1.2. Water Depletion [Brauman et al. 2016](http://www.earthstat.org/water-depletion-watergap3-basins/)
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\WaterGap3\WaterDepletion'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\WaterGap3\WaterDepletion'
 
 ```{r}
 wdp <- rast(file.path(sharepoint_dir, "ws_gis", "1_library", "WaterGap3", "WaterDepletion", "WaterDepletionCat_WG3.tif"))
@@ -52,7 +52,7 @@ wdp <- rast(file.path(sharepoint_dir, "ws_gis", "1_library", "WaterGap3", "Water
 
 #### 2.1.3. Blue Water Scarcity [Hoekstra & Mekonnen 2011](https://www.waterfootprint.org/resources/appendix/Report53_Appendix.zip)
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\BlueWaterScarcity\WS_blue_monthly_rasters\WSbl_monthly_30m'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\BlueWaterScarcity\WS\_blue_monthly_rasters\WSbl\_monthly_30m'
 
 ```{r}
 wsb <- rast(file.path(sharepoint_dir, "ws_gis", "1_library", "BlueWaterScarcity", "WS_blue_monthly_rasters", "WSbl_monthly_30m", "ws_avg.tif"))
@@ -69,7 +69,7 @@ cep <- bws
 
 #### 2.2.2. Nitrate-Nitrite Concentration [Damania et al. 2019](https://wbwaterdata.org/dataset/global-nitrate-nitrite-surface-water)
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\WorldBank_ML_Quality'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\WorldBank\_ML_Quality'
 
 ```{r}
 nox_csv <- read_csv(file.path(sharepoint_dir, "ws_gis", "1_library", "WorldBank_ML_Quality", "noxn_preds_05_16_19.csv"))
@@ -78,7 +78,7 @@ nox_csv <- read_csv(file.path(sharepoint_dir, "ws_gis", "1_library", "WorldBank_
 
 *Spatial grid*
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\WorldBank_ML_Quality'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\WorldBank\_ML_Quality'
 
 ```{r}
 sp_grid <- read_csv(file.path(sharepoint_dir, "ws_gis", "1_library", "WorldBank_ML_Quality", "ML_data_gridcell_match.csv"))
@@ -89,7 +89,7 @@ sp_grid <- read_csv(file.path(sharepoint_dir, "ws_gis", "1_library", "WorldBank_
 
 *Total Nitrogen Concentration*
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\water_quality_mcdowell\data_from_author\WQ_Variables_Extraction'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\water\_quality_mcdowell\data\_from_author\WQ\_Variables_Extraction'
 
 ```{r}
 tnc <- rast(file.path(sharepoint_dir, "ws_gis", "1_library", "water_quality_mcdowell", "data_from_author", "WQ_Variables_Extraction", "TN_Conc.tif"))
@@ -98,7 +98,7 @@ tnc <- rast(file.path(sharepoint_dir, "ws_gis", "1_library", "water_quality_mcdo
 
 *Total Phosphorus Concentration*
 
-'FB-OuR-Daten - WRF\ws_gis\1_library\water_quality_mcdowell\data_from_author\WQ_Variables_Extraction'
+'FB-OuR-Daten - WRF\ws\_gis\\1_library\water\_quality_mcdowell\data\_from_author\WQ\_Variables_Extraction'
 
 ```{r}
 tpc <- rast(file.path(sharepoint_dir, "ws_gis", "1_library", "water_quality_mcdowell", "data_from_author", "WQ_Variables_Extraction", "TP_Conc.tif"))
@@ -447,7 +447,7 @@ son_water |>
 ## 6. Export
 
 ```{r}
-write_rds(son_water, here("../outputs", "h6", "sbtn_son_water_v2.rds"))
+write_rds(son_water, here("../outputs", "h6", "sbtn_son_water_v1.1.rds"))
 ```
 
 ```{r}
