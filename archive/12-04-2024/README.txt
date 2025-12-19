@@ -1,0 +1,2 @@
+This folder contains SBTN data BEFORE changes made by Rafael in this commit on GitHub (https://github.com/Qnature/sbtn-SoN-water/commit/ed854d149c3276623e2bd1bf25aac9064221c300#diff-d6eabd2371c18279b889ae29c5200be7391e1b3b388dbbc8f87b7f0b7225d8ca).
+This data is OUTDATE AND SHOULD NOT BE USED FOR ANALYSES. IT IS INCLUDED JUST FOR COMPARISON.

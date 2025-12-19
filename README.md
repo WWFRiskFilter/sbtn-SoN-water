@@ -1,6 +1,9 @@
 ## State of Nature layers for Water Availability and Water Pollution to support SBTN Step 1: Assess and Step 2: Interpret & Prioritize
 
-This repo builds on work done by Rafael in https://github.com/Qnature/sbtn-SoN-water (which is itself a fork from https://github.com/rafaexx/sbtn-SoN-water). To match new SBTN guidelines, we are extracting *individual* indicators rather than generating a single unified layer. These individual layers are converted the hydroshed level 7 to be spatially comparable to all other RFS indicators. All other code remains the same. See the original repo description below:
+This repo builds on work done by Rafael in https://github.com/Qnature/sbtn-SoN-water (which is itself a fork from https://github.com/rafaexx/sbtn-SoN-water). 
+To match new SBTN guidelines, we are extracting *individual* indicators rather than generating a single unified layer.
+These individual layers are converted the hydroshed level 7 to be spatially comparable to all other RFS indicators.
+All other code remains the same. See the original repo description below:
 
 ### ORIGINAL DESCRIPTION
 

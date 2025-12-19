@@ -4,3 +4,8 @@
 .Ruserdata
 /inputs
 /outputs
+*.zip
+*.shp
+*.dbf
+*.prj
+*.shx
