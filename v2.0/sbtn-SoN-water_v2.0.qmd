@@ -1,5 +1,5 @@
 ---
-title:  "SBTN State of Nature Water unified layers (v2.1)"
+title:  "SBTN State of Nature Water unified layers (v2.0)"
 author: "Liam D. Bailey"
 lightbox: true
 format:
@@ -67,7 +67,7 @@ wdp <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_
 Also called 'Blue Water Reduction Target' in app recommended by SBTN (https://www.waterfootprintassessmenttool.org/hbasins/sustainability/map/blue?b=sbtn)
 
 ```{r}
-fqt <- read_sf(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterAvailability_FreshwaterQuantityTargets_Hogeboom24", "v2.0", "FQT_v2.gpkg"))
+fqt <- read_sf(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterAvailability_FreshwaterQuantityTargets_Hogeboom24", "v1.0", "Freshwater Quantity Targets.shp"))
 ```
 
 ### 2.2. Water Pollution
@@ -202,7 +202,7 @@ wdp_n <- wdp_n |>
 ```{r}
 fqt_n <- fqt |>
   mutate(
-    fqt_raw = Target_annual,
+    fqt_raw = FQT_Annual,
     fqt_n = case_when(
       fqt_raw < 5 ~ 1,
       fqt_raw < 25 ~ 2,
@@ -224,14 +224,14 @@ fqt_n <- fqt |>
 #### 3.1.4. Join datasets and Export
 
 ```{r}
-if (params$overwrite | !file.exists(here("./v2.1/outputs", "wa_n.rds"))) {
+if (params$overwrite | !file.exists(here("./v2.0/outputs", "wa_n.rds"))) {
   wa_n <- h6 |>
     st_join(bws_n, largest = TRUE) |>
     left_join(wdp_n, by = "HYBAS_ID") |>
     st_join(fqt_n, largest = TRUE) 
-  write_rds(wa_n, here("./v2.1/outputs", "wa_n.rds"))
+  write_rds(wa_n, here("./v2.0/outputs", "wa_n.rds"))
 } else {
-  wa_n <- read_rds(here("./v2.1/outputs", "wa_n.rds"))
+  wa_n <- read_rds(here("./v2.0/outputs", "wa_n.rds"))
 }
 ```
 
@@ -359,14 +359,14 @@ pgp_n <- tnc_n |>
 #### 3.2.4. Join datasets and Export
 
 ```{r}
-if(params$overwrite | !file.exists(here("./v2.1/outputs", "wp_n.rds"))){
+if(params$overwrite | !file.exists(here("./v2.0/outputs", "wp_n.rds"))){
  wp_n <- h6 |>
   st_join(cep_n, largest = TRUE) |>
   left_join(nox_n, by = "HYBAS_ID") |>
   left_join(pgp_n, by = "HYBAS_ID")
- write_rds(wp_n, here("./v2.1/outputs", "wp_n.rds"))
+ write_rds(wp_n, here("./v2.0/outputs", "wp_n.rds"))
 } else {
-  wp_n <- read_rds(here("./v2.1/outputs", "wp_n.rds"))
+  wp_n <- read_rds(here("./v2.0/outputs", "wp_n.rds"))
 }
 ```
 
@@ -429,20 +429,8 @@ son_water |>
 ## 6. Explore data
 
 We want to check:
-- How does new data compare to previous versions v1.1 and v2.0?
-- How does Hogeboom v2.0 alone compared to all unified layer versions: v1.1, v2.0, v2.1?
-- In v2.1, which dataset is driving risk score in each location? i.e. which dataset has the max value?
-
-### 6.1. Compare to previous versions
-
-```{r}
-
-```
-
-### 6.2. Compare Hogeboom alone v. unified
-
-
-### 6.3. Identify driving dataset
+- In v2.0, which dataset is driving risk score in each location?
+i.e. which dataset has the max value?
 
 ```{r}
 son_water_keydata_wa <- son_water |> 
@@ -478,7 +466,7 @@ BWS_driver <- ggplot() +
         plot.background = element_rect(fill = "white", colour = NA),
         legend.position = "none")
 
-ggsave(plot = BWS_driver, filename = here("./v2.1/outputs", "BWS_driver.png"))
+ggsave(plot = BWS_driver, filename = here("./v2.0/outputs", "BWS_driver.png"))
 ```
 
 ```{r}
@@ -492,7 +480,7 @@ WDP_driver <- ggplot() +
         plot.background = element_rect(fill = "white", colour = NA),
         legend.position = "none")
 
-ggsave(plot = WDP_driver, filename = here("./v2.1/outputs", "WDP_driver.png"))
+ggsave(plot = WDP_driver, filename = here("./v2.0/outputs", "WDP_driver.png"))
 ```
 
 ```{r}
@@ -506,10 +494,11 @@ FQT_driver <- ggplot() +
         plot.background = element_rect(fill = "white", colour = NA),
         legend.position = "none")
 
-ggsave(plot = FQT_driver, filename = here("./v2.1/outputs", "FQT_driver.png"))
+ggsave(plot = FQT_driver, filename = here("./v2.0/outputs", "FQT_driver.png"))
 ```
 
-Combined. Here we show categories where locations are driven by a particular dataset, or driven by >1.
+Combined.
+Here we show categories where locations are driven by a particular dataset, or driven by \>1.
 
 ```{r}
 combo_data <- son_water_keydata_wa |> 
@@ -534,7 +523,7 @@ top_model_plot <- ggplot() +
         plot.background = element_rect(fill = "white", colour = NA),
         legend.position = "bottom")
 
-ggsave(plot = top_model_plot, filename = here("./v2.1/outputs", "all_drivers.png"))
+ggsave(plot = top_model_plot, filename = here("./v2.0/outputs", "all_drivers.png"))
 ```
 
 ```{r}
@@ -548,21 +537,21 @@ top_model_plot_highrisk <- ggplot() +
         plot.background = element_rect(fill = "white", colour = NA),
         legend.position = "bottom")
 
-ggsave(plot = top_model_plot_highrisk, filename = here("./v2.1/outputs", "all_drivers_highrisk.png"))
+ggsave(plot = top_model_plot_highrisk, filename = here("./v2.0/outputs", "all_drivers_highrisk.png"))
 ```
 
 ## 7. Export
 
 ```{r}
-write_rds(son_water, here("./v2.1/outputs", "sbtn_son_water_v2.1.rds"))
+write_rds(son_water, here("./v2.0/outputs", "sbtn_son_water_v2.0.rds"))
 ```
 
 ```{r}
-st_write(son_water, here("./v2.1/outputs", "sbtn_son_water_v2.1.shp"), layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
+st_write(son_water, here("./v2.0/outputs", "sbtn_son_water_v2.0.shp"), layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
 ```
 
 ```{r}
 write.xlsx(list(
   "SBTN SoN Water" = st_drop_geometry(son_water)
-), file = here("./v2.1/outputs", "sbtn_son_water_v2.1.xlsx"), rowNames = FALSE)
+), file = here("./v2.0/outputs", "sbtn_son_water_v2.0.xlsx"), rowNames = FALSE)
 ```
