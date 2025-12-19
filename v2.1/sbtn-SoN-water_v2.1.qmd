@@ -26,6 +26,7 @@ execute:
   warning: false
 params:
   sharepoint: "C:\\Users\\liam.bailey\\WWF-Deutschland\\FB-WuM-Daten - Water & Biodiversity Stewardship"
+  overwrite: FALSE
 editor: 
   markdown: 
     wrap: sentence
@@ -63,10 +64,10 @@ wdp <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_
 
 #### 2.1.3. Freshwater Quantity Targets v1.0 [Hogeboom et al. 2024](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v2)
 
-Also called 'Blue Water Reduction Target' in app recommended by SBTN (https://www.waterfootprintassessmenttool.org/hbasins/sustainability/map/blue?b=sbtn)
+Also called 'Freshwater Quantity Targets Target' in app recommended by SBTN (https://www.waterfootprintassessmenttool.org/hbasins/sustainability/map/blue?b=sbtn)
 
 ```{r}
-bwr <- read_sf(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterAvailability_FreshwaterQuantityTargets_Hogeboom24", "v1.0", "Freshwater Quantity Targets.shp"))
+fqt <- read_sf(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterAvailability_FreshwaterQuantityTargets_Hogeboom24", "v2.0", "FQT_v2.gpkg"))
 ```
 
 ### 2.2. Water Pollution
@@ -119,20 +120,16 @@ wmo_basins <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Fold
 #### 2.3.2. HydroSHEDS HydroBASINS Level 6 [Lehner & Grill 2013](https://www.hydrosheds.org/products/hydrobasins)
 
 ```{r}
-h6 <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Basins_HydroSHEDS_McGill", "v1.0", "HydroBASINS", "hybas_lev06_v1c.gpkg")) |> 
-  select(HYBAS_ID) |>
-  mutate(HYBAS_ID = as.factor(HYBAS_ID)) |>
-  ## Link WMO basin with Hydroshed 6 that has the largest overlap
-  st_join(wmo_basins, largest = TRUE)
-```
-
-#### 2.3.3. Export / Fast load
-
-```{r}
-if (!file.exists(here("./v2.1/outputs", "h6", "h6.rds"))){
- write_rds(h6, here("./v2.1/outputs", "h6", "h6.rds")) 
+if (params$overwrite | !file.exists(here("./v2.1/outputs", "h6.rds"))){
+  h6 <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Basins_HydroSHEDS_McGill", "v1.0", "HydroBASINS", "hybas_lev06_v1c.gpkg")) |> 
+    select(HYBAS_ID) |>
+    mutate(HYBAS_ID = as.factor(HYBAS_ID)) |>
+    ## Link WMO basin with Hydroshed 6 that has the largest overlap
+    st_join(wmo_basins, largest = TRUE)
+  
+  write_rds(h6, here("./v2.1/outputs", "h6.rds")) 
 } else {
- h6 <- read_rds(here("./v2.1/outputs", "h6", "h6.rds"))
+  h6 <- read_rds(here("./v2.1/outputs", "h6.rds"))
 }
 ```
 
@@ -179,7 +176,7 @@ wdp_reclass <- matrix(
 wdp_n <- wdp |>
   classify(wdp_reclass) |> 
   exact_extract(h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
-                       append_cols = "HYBAS_ID", progress = TRUE) 
+                append_cols = "HYBAS_ID", progress = TRUE) 
 
 skim(wdp_n)
 ```
@@ -200,41 +197,42 @@ wdp_n <- wdp_n |>
   select(HYBAS_ID, wdp_raw:wdp_label)
 ```
 
-#### 3.1.3. Blue Water Reduction
+#### 3.1.3. Freshwater Quantity Targets
 
 ```{r}
-bwr_n <- bwr |>
+fqt_n <- fqt |>
   mutate(
-    bwr_raw = FQT_Annual,
-    bwr_n = case_when(
-      bwr_raw < 5 ~ 1,
-      bwr_raw < 25 ~ 2,
-      bwr_raw < 50 ~ 3,
-      bwr_raw < 80 ~ 4,
-      bwr_raw >= 80 ~ 5
+    fqt_raw = Target_annual,
+    fqt_n = case_when(
+      fqt_raw < 5 ~ 1,
+      fqt_raw < 25 ~ 2,
+      fqt_raw < 50 ~ 3,
+      fqt_raw < 80 ~ 4,
+      fqt_raw >= 80 ~ 5
     ),
-    bwr_label = case_when(
-      bwr_n == 1 ~ "Low (<5%)",
-      bwr_n == 2 ~ "Moderate (5-25%)",
-      bwr_n == 3 ~ "Significant (25-50%)",
-      bwr_n == 4 ~ "Severe (50-80%)",
-      bwr_n == 5 ~ "Extreme (>=80%)"
+    fqt_label = case_when(
+      fqt_n == 1 ~ "Low (<5%)",
+      fqt_n == 2 ~ "Moderate (5-25%)",
+      fqt_n == 3 ~ "Significant (25-50%)",
+      fqt_n == 4 ~ "Severe (50-80%)",
+      fqt_n == 5 ~ "Extreme (>=80%)"
     )
   ) |>
-  select(bwr_raw, bwr_n, bwr_label)
+  select(fqt_raw, fqt_n, fqt_label)
 ```
 
 #### 3.1.4. Join datasets and Export
 
 ```{r}
-wa_n <- h6 |>
-  st_join(bws_n, largest = TRUE) |>
-  left_join(wdp_n, by = "HYBAS_ID") |>
-  st_join(bwr_n, largest = TRUE)
-```
-
-```{r}
-write_rds(wa_n, here("./outputs", "h6", "wa_n.rds"))
+if (params$overwrite | !file.exists(here("./v2.1/outputs", "wa_n.rds"))) {
+  wa_n <- h6 |>
+    st_join(bws_n, largest = TRUE) |>
+    left_join(wdp_n, by = "HYBAS_ID") |>
+    st_join(fqt_n, largest = TRUE) 
+  write_rds(wa_n, here("./v2.1/outputs", "wa_n.rds"))
+} else {
+  wa_n <- read_rds(here("./v2.1/outputs", "wa_n.rds"))
+}
 ```
 
 ### 3.2. Water Pollution
@@ -361,14 +359,15 @@ pgp_n <- tnc_n |>
 #### 3.2.4. Join datasets and Export
 
 ```{r}
-wp_n <- h6 |>
+if(params$overwrite | !file.exists(here("./v2.1/outputs", "wp_n.rds"))){
+ wp_n <- h6 |>
   st_join(cep_n, largest = TRUE) |>
   left_join(nox_n, by = "HYBAS_ID") |>
   left_join(pgp_n, by = "HYBAS_ID")
-```
-
-```{r}
-write_rds(wp_n, here("./outputs", "h6", "wp_n.rds"))
+ write_rds(wp_n, here("./v2.1/outputs", "wp_n.rds"))
+} else {
+  wp_n <- read_rds(here("./v2.1/outputs", "wp_n.rds"))
+}
 ```
 
 ## 4. Identify the value for the unified layer
@@ -376,14 +375,10 @@ write_rds(wp_n, here("./outputs", "h6", "wp_n.rds"))
 ### 4.1. Max of Water Availability
 
 ```{r}
-wa_n <- read_rds(here("./outputs", "h6", "wa_n.rds"))
-```
-
-```{r}
 son_wa <- wa_n |>
   rowwise() |>
   mutate(
-    wa_max = max(c(bws_n, wdp_n, bwr_n), na.rm = TRUE),
+    wa_max = max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE),
     wa_max = if_else(between(wa_max, 1, 5), wa_max, NA),
     .after = region
   ) |>
@@ -391,10 +386,6 @@ son_wa <- wa_n |>
 ```
 
 ### 4.2. Max of Water Pollution
-
-```{r}
-wp_n <- read_rds(here("./outputs", "h6", "wp_n.rds"))
-```
 
 ```{r}
 son_wp <- wp_n |>
@@ -415,7 +406,7 @@ son_water <- son_wa |>
     son_wp |> select(-c(WMOBB_id:region)) |> st_drop_geometry(),
     by = "HYBAS_ID"
   ) |>
-  relocate(geometry, .after = last_col())
+  relocate(geom, .after = last_col())
 
 st_drop_geometry(son_water) |> skim()
 ```
@@ -435,18 +426,143 @@ son_water |>
   )
 ```
 
-## 6. Export
+## 6. Explore data
+
+We want to check:
+- How does new data compare to previous versions v1.1 and v2.0?
+- How does Hogeboom v2.0 alone compared to all unified layer versions: v1.1, v2.0, v2.1?
+- In v2.1, which dataset is driving risk score in each location? i.e. which dataset has the max value?
+
+### 6.1. Compare to previous versions
 
 ```{r}
-write_rds(son_water, here("./outputs", "h6", "sbtn_son_water_v2.rds"))
+
+```
+
+### 6.2. Compare Hogeboom alone v. unified
+
+
+### 6.3. Identify driving dataset
+
+```{r}
+son_water_keydata_wa <- son_water |> 
+  sf::st_drop_geometry() |> 
+  select(HYBAS_ID, bws_n, wdp_n, fqt_n, wa_max) |> 
+  rowwise() |> 
+  mutate(BWS_top = case_when(is.na(bws_n) ~ FALSE,
+                             !is.na(bws_n) ~ bws_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         WDP_top = case_when(is.na(wdp_n) ~ FALSE,
+                             !is.na(wdp_n) ~ wdp_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         FQT_top = case_when(is.na(fqt_n) ~ FALSE,
+                             !is.na(fqt_n) ~ fqt_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         combo = case_when(!any(c(BWS_top, WDP_top, FQT_top)) ~ NA,
+                           TRUE ~ sum(c(FQT_top, WDP_top, BWS_top)) > 1)) |> 
+  ungroup()
+
+son_water_keydata_wa_sf <- son_water |> 
+  select(HYBAS_ID) |> 
+  left_join(son_water_keydata_wa, by = "HYBAS_ID") |> 
+  st_transform("EPSG:8857") |> 
+  st_simplify(dTolerance = 10000) |> 
+  st_transform("EPSG:4326")
 ```
 
 ```{r}
-st_write(son_water, here("./outputs", "h6", "sbtn_son_water_v2.shp"), layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
+BWS_driver <- ggplot() +
+  geom_sf(data = son_water_keydata_wa_sf,
+          aes(fill = BWS_top, alpha = combo), colour = NA) +
+  scale_fill_manual(values = c("white", "blue")) +
+  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
+  theme_void() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA),
+        legend.position = "none")
+
+ggsave(plot = BWS_driver, filename = here("./v2.1/outputs", "BWS_driver.png"))
+```
+
+```{r}
+WDP_driver <- ggplot() +
+  geom_sf(data = son_water_keydata_wa_sf,
+          aes(fill = WDP_top, alpha = combo), colour = NA) +
+  scale_fill_manual(values = c("white", "blue")) +
+  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
+  theme_void() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA),
+        legend.position = "none")
+
+ggsave(plot = WDP_driver, filename = here("./v2.1/outputs", "WDP_driver.png"))
+```
+
+```{r}
+FQT_driver <- ggplot() +
+  geom_sf(data = son_water_keydata_wa_sf,
+          aes(fill = FQT_top, alpha = combo), colour = NA) +
+  scale_fill_manual(values = c("white", "blue")) +
+  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
+  theme_void() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA),
+        legend.position = "none")
+
+ggsave(plot = FQT_driver, filename = here("./v2.1/outputs", "FQT_driver.png"))
+```
+
+Combined. Here we show categories where locations are driven by a particular dataset, or driven by >1.
+
+```{r}
+combo_data <- son_water_keydata_wa |> 
+  group_by(HYBAS_ID) |> 
+  summarise(top_mod = case_when(combo ~ "Multiple",
+                                BWS_top ~ "BWS",
+                                WDP_top ~ "WDP",
+                                FQT_top ~ "FQT")) |> 
+  ungroup()
+
+combo_data_sf <- son_water_keydata_wa_sf |> 
+  left_join(combo_data, by = "HYBAS_ID")
+```
+
+```{r}
+top_model_plot <- ggplot() +
+  geom_sf(data = combo_data_sf,
+          aes(fill = top_mod), colour = NA) +
+  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
+  theme_void() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA),
+        legend.position = "bottom")
+
+ggsave(plot = top_model_plot, filename = here("./v2.1/outputs", "all_drivers.png"))
+```
+
+```{r}
+top_model_plot_highrisk <- ggplot() +
+  geom_sf(data = combo_data_sf |> 
+            filter(wa_max >= 4),
+          aes(fill = top_mod), colour = NA) +
+  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
+  theme_void() +
+  theme(panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA),
+        legend.position = "bottom")
+
+ggsave(plot = top_model_plot_highrisk, filename = here("./v2.1/outputs", "all_drivers_highrisk.png"))
+```
+
+## 7. Export
+
+```{r}
+write_rds(son_water, here("./v2.1/outputs", "sbtn_son_water_v2.1.rds"))
+```
+
+```{r}
+st_write(son_water, here("./v2.1/outputs", "sbtn_son_water_v2.1.shp"), layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
 ```
 
 ```{r}
 write.xlsx(list(
   "SBTN SoN Water" = st_drop_geometry(son_water)
-), file = here("./outputs", "h6", "sbtn_son_water_v2.xlsx"), rowNames = FALSE)
+), file = here("./v2.1/outputs", "sbtn_son_water_v2.1.xlsx"), rowNames = FALSE)
 ```
