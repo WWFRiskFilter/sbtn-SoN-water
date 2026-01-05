@@ -32,37 +32,41 @@ editor:
     wrap: sentence
 ---
 
-## 1. Setup
-
-Load required packages
-
 ```{r}
+#| echo: false
+#| include: false
+
+## SETUP
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, dplyr, magrittr, sf, terra, stars, exactextractr, skimr, readr, tidyr, openxlsx, mapview)
-```
-
-```{r}
+pacman::p_load(here, dplyr, magrittr, sf, terra, stars, exactextractr, skimr, readr, tidyr, openxlsx, mapview, ggplot2)
 sf::sf_use_s2(FALSE) # due to issues in HydroBASINS geometries
 ```
 
-## 2. Load data
+## Introduction
 
-### 2.1. Water Availability
+:::{.callout-note}
+- Unified layer v2.0 replaces Blue Water Scarcity (Mekonnen & Hoekstra) and [Freshwater Quantity Targets v1.0 (Hogeboom et al. 2024)](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v1).
+- Unified layer v2.1 uses newly released [Freshwater Quantity Targets v2.0 (Hogeboom et al. 2024)](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v2).
+:::
 
-#### 2.1.1. Baseline Water Stress [Kuzma et al. 2023](https://www.wri.org/data/aqueduct-global-maps-40-data)
+## 1. Load data
+
+### 1.1. Water Availability
+
+#### 1.1.1. Baseline Water Stress [Kuzma et al. 2023](https://www.wri.org/data/aqueduct-global-maps-40-data)
 
 ```{r}
 bws <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Aqueduct_WRI", "v4.0", "GDB", "Aq40_Y2023D07M05.gdb"),
                layer = "baseline_annual")
 ```
 
-#### 2.1.2. Water Depletion [Brauman et al. 2016](http://www.earthstat.org/water-depletion-watergap3-basins/)
+#### 1.1.2. Water Depletion [Brauman et al. 2016](http://www.earthstat.org/water-depletion-watergap3-basins/)
 
 ```{r}
 wdp <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterAvailability_WaterDepletion_WaterGap3", "WaterDepletion", "WaterDepletionCat_WG3.tif"))
 ```
 
-#### 2.1.3. Freshwater Quantity Targets v1.0 [Hogeboom et al. 2024](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v2)
+#### 1.1.3. Freshwater Quantity Targets v2.0 [Hogeboom et al. 2024](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v2)
 
 Also called 'Blue Water Reduction Target' in app recommended by SBTN (https://www.waterfootprintassessmenttool.org/hbasins/sustainability/map/blue?b=sbtn)
 
@@ -70,17 +74,17 @@ Also called 'Blue Water Reduction Target' in app recommended by SBTN (https://ww
 fqt <- read_sf(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterAvailability_FreshwaterQuantityTargets_Hogeboom24", "v2.0", "FQT_v2.gpkg"))
 ```
 
-### 2.2. Water Pollution
+### 1.2. Water Pollution
 
-#### 2.2.1. Coastal Eutrophication Potential [Kuzma et al. 2023](https://www.wri.org/data/aqueduct-global-maps-40-data)
+#### 1.2.1. Coastal Eutrophication Potential [Kuzma et al. 2023](https://www.wri.org/data/aqueduct-global-maps-40-data)
 
-Comes from Aqueduct 4.0 data (but not updated since Aqueduct 3.0)
+Comes from Aqueduct 4.0 data (but unchanged since Aqueduct 3.0)
 
 ```{r}
 cep <- bws
 ```
 
-#### 2.2.2. Nitrate-Nitrite Concentration [Damania et al. 2019](https://wbwaterdata.org/dataset/global-nitrate-nitrite-surface-water)
+#### 1.2.2. Nitrate-Nitrite Concentration [Damania et al. 2019](https://wbwaterdata.org/dataset/global-nitrate-nitrite-surface-water)
 
 ```{r}
 nox_csv <- read_csv(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterQuality_WorldBank", "WorldBank_ML_Quality", "WorldBank_ML_Quality", "noxn_preds_05_16_19.csv"))
@@ -92,7 +96,7 @@ nox_csv <- read_csv(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folder
 sp_grid <- read_csv(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterQuality_WorldBank", "WorldBank_ML_Quality", "WorldBank_ML_Quality", "ML_data_gridcell_match.csv"))
 ```
 
-#### 2.2.3. Periphyton Growth Potential [McDowell et al. 2020](https://figshare.com/s/e44fe7319585183d888f)
+#### 1.2.3. Periphyton Growth Potential [McDowell et al. 2020](https://figshare.com/s/e44fe7319585183d888f)
 
 *Total Nitrogen Concentration*
 
@@ -106,9 +110,9 @@ tnc <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_
 tpc <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterQuality_FreshwaterNutrientPollution_McDowell20", "data_from_author", "WQ_Variables_Extraction", "TN_Conc.tif"))
 ```
 
-### 2.3. Aggregation unit
+### 1.3. Aggregation unit
 
-#### 2.3.1. WMO Basins and Sub-Basins [GRDC 2020](https://panda.maps.arcgis.com/home/item.html?id=be4b6f13121b4670ad8f006bc1908e14)
+#### 1.3.1. WMO Basins and Sub-Basins [GRDC 2020](https://panda.maps.arcgis.com/home/item.html?id=be4b6f13121b4670ad8f006bc1908e14)
 
 *To add name of basins*
 
@@ -117,7 +121,7 @@ wmo_basins <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Fold
   select(WMOBB_id = WMOBB, WMOBB_name = WMOBBName, region = REGNAME)
 ```
 
-#### 2.3.2. HydroSHEDS HydroBASINS Level 6 [Lehner & Grill 2013](https://www.hydrosheds.org/products/hydrobasins)
+#### 1.3.2. HydroSHEDS HydroBASINS Level 6 [Lehner & Grill 2013](https://www.hydrosheds.org/products/hydrobasins)
 
 ```{r}
 if (params$overwrite | !file.exists(here("./v2.1/outputs", "h6.rds"))){
@@ -133,11 +137,11 @@ if (params$overwrite | !file.exists(here("./v2.1/outputs", "h6.rds"))){
 }
 ```
 
-## 3. Clean and Classify data to 1-5 values
+## 2. Clean and Classify data to 1-5 values
 
-### 3.1. Water Availability
+### 2.1. Water Availability
 
-#### 3.1.1. Baseline Water Stress
+#### 2.1.1. Baseline Water Stress
 
 ```{r}
 bws_n <- bws |>
@@ -155,7 +159,7 @@ bws_n <- bws |>
   select(bws_raw, bws_n, bws_label, geometry = Shape)
 ```
 
-#### 3.1.2. Water Depletion
+#### 2.1.2. Water Depletion
 
 ```{r}
 wdp_reclass <- matrix(
@@ -178,7 +182,7 @@ wdp_n <- wdp |>
   exact_extract(h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                 append_cols = "HYBAS_ID", progress = TRUE) 
 
-skim(wdp_n)
+# skim(wdp_n)
 ```
 
 ```{r}
@@ -197,18 +201,18 @@ wdp_n <- wdp_n |>
   select(HYBAS_ID, wdp_raw:wdp_label)
 ```
 
-#### 3.1.3. Freshwater Quantity Targets
+#### 2.1.3. Freshwater Quantity Targets
 
 ```{r}
 fqt_n <- fqt |>
   mutate(
     fqt_raw = Target_annual,
     fqt_n = case_when(
-      fqt_raw < 5 ~ 1,
-      fqt_raw < 25 ~ 2,
-      fqt_raw < 50 ~ 3,
-      fqt_raw < 80 ~ 4,
-      fqt_raw >= 80 ~ 5
+      fqt_raw < 0.05 ~ 1,
+      fqt_raw < 0.25 ~ 2,
+      fqt_raw < 0.5 ~ 3,
+      fqt_raw < 0.8 ~ 4,
+      fqt_raw >= 0.8 ~ 5
     ),
     fqt_label = case_when(
       fqt_n == 1 ~ "Low (<5%)",
@@ -221,7 +225,7 @@ fqt_n <- fqt |>
   select(fqt_raw, fqt_n, fqt_label)
 ```
 
-#### 3.1.4. Join datasets and Export
+#### 2.1.4. Join datasets and Export
 
 ```{r}
 if (params$overwrite | !file.exists(here("./v2.1/outputs", "wa_n.rds"))) {
@@ -235,9 +239,9 @@ if (params$overwrite | !file.exists(here("./v2.1/outputs", "wa_n.rds"))) {
 }
 ```
 
-### 3.2. Water Pollution
+### 2.2. Water Pollution
 
-#### 3.2.1. Coastal Eutrophication Potential
+#### 2.2.1. Coastal Eutrophication Potential
 
 ```{r}
 cep_n <- cep |>
@@ -255,7 +259,7 @@ cep_n <- cep |>
   select(cep_raw, cep_n, cep_label, geometry = Shape)
 ```
 
-#### 3.2.2. Nitrate-Nitrite Concentration
+#### 2.2.2. Nitrate-Nitrite Concentration
 
 *Get mean predicted values between 2006 and 2010, then rasterize*
 
@@ -275,7 +279,7 @@ nox <- nox_csv |>
 nox_n <- exact_extract(nox, h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                        append_cols = "HYBAS_ID", progress = TRUE)
 
-skim(nox_n)
+# skim(nox_n)
 ```
 
 ```{r}
@@ -300,20 +304,20 @@ nox_n <- nox_n |>
   select(HYBAS_ID, nox_raw:nox_label)
 ```
 
-#### 3.2.3. Periphyton Growth Potential
+#### 2.2.3. Periphyton Growth Potential
 
 ```{r}
 tnc_n <- exact_extract(tnc, h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                        append_cols = "HYBAS_ID", progress = TRUE)
 
-skim(tnc_n)
+# skim(tnc_n)
 ```
 
 ```{r}
 tpc_n <- exact_extract(tpc, h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                        append_cols = "HYBAS_ID", progress = TRUE)
 
-skim(tpc_n)
+# skim(tpc_n)
 ```
 
 ```{r}
@@ -356,23 +360,23 @@ pgp_n <- tnc_n |>
   select(HYBAS_ID, tnc_raw, tpc_raw, ratio_n_p, limiting, pgp_n, pgp_label)
 ```
 
-#### 3.2.4. Join datasets and Export
+#### 2.2.4. Join datasets and Export
 
 ```{r}
 if(params$overwrite | !file.exists(here("./v2.1/outputs", "wp_n.rds"))){
- wp_n <- h6 |>
-  st_join(cep_n, largest = TRUE) |>
-  left_join(nox_n, by = "HYBAS_ID") |>
-  left_join(pgp_n, by = "HYBAS_ID")
- write_rds(wp_n, here("./v2.1/outputs", "wp_n.rds"))
+  wp_n <- h6 |>
+    st_join(cep_n, largest = TRUE) |>
+    left_join(nox_n, by = "HYBAS_ID") |>
+    left_join(pgp_n, by = "HYBAS_ID")
+  write_rds(wp_n, here("./v2.1/outputs", "wp_n.rds"))
 } else {
   wp_n <- read_rds(here("./v2.1/outputs", "wp_n.rds"))
 }
 ```
 
-## 4. Identify the value for the unified layer
+## 3. Identify the value for the unified layer
 
-### 4.1. Max of Water Availability
+### 3.1. Max of Water Availability
 
 ```{r}
 son_wa <- wa_n |>
@@ -385,7 +389,7 @@ son_wa <- wa_n |>
   ungroup()
 ```
 
-### 4.2. Max of Water Pollution
+### 3.2. Max of Water Pollution
 
 ```{r}
 son_wp <- wp_n |>
@@ -398,7 +402,7 @@ son_wp <- wp_n |>
   ungroup()
 ```
 
-## 5. Join final output
+## 4. Join final output
 
 ```{r}
 son_water <- son_wa |>
@@ -408,7 +412,7 @@ son_water <- son_wa |>
   ) |>
   relocate(geom, .after = last_col())
 
-st_drop_geometry(son_water) |> skim()
+# st_drop_geometry(son_water) |> skim()
 ```
 
 ```{r}
@@ -426,23 +430,80 @@ son_water |>
   )
 ```
 
-## 6. Explore data
+## 5. Explore data
+3. How do conclusions differ when using Freshwater Quantity Targets v2.0 v. unified layer?
+4. Which water availability datasets are the drivers of risk (i.e. which dataset has the highest risk in each location)?
 
-We want to check:
-- How does new data compare to previous versions v1.1 and v2.0?
-- How does Hogeboom v2.0 alone compared to all unified layer versions: v1.1, v2.0, v2.1?
-- In v2.1, which dataset is driving risk score in each location? i.e. which dataset has the max value?
-
-### 6.1. Compare to previous versions
+Create a single simplified dataset with risk scores for v1.1, v2.0, and v2.1.
 
 ```{r}
+unified2.0 <- read_sf(here("v2.0", "outputs", "sbtn_son_water_v2.0.shp")) |>
+  sf::st_drop_geometry()
 
+unified1.1 <- readRDS(here("v1.1", "outputs", "h6.rds")) |>
+  sf::st_drop_geometry()
+
+allunified <- son_water |> 
+  st_transform("EPSG:8857") |> 
+  st_simplify(dTolerance = 10000) |> 
+  st_transform(st_crs(son_water)) |> 
+  left_join(unified2.0 |> select(HYBAS_ID, wa_max_2.0), by = "HYBAS_ID") |> 
+  left_join(unified1.1 |> select(HYBAS_ID, wa_max_1.1), by = "HYBAS_ID") |> 
+  rename(wa_max_2.1 = wa_max)
 ```
 
-### 6.2. Compare Hogeboom alone v. unified
+### 5.1 How do risks differ between Blue Water Scarcity, Freshwater Quantity Targets v1.0, and Freshwater Quantity Targets v2.0?
 
+### 5.2. How does unified layers v1.1, v2.0, and v2.1 differ from one another?
 
-### 6.3. Identify driving dataset
+Compare how different unified layers compare for Water Availability.
+
+```{r}
+plot_list <- list()
+for(version in c("1.1", "2.0", "2.1")){
+  
+  plot_data <- allunified |> 
+    mutate(diff = !!paste0("wa_max_", version) - wa_max_1.1) |> 
+    select(ends_with(version), ends_with("1.1"), diff)
+  
+  plot1 <- ggplot() +
+    geom_sf(data = plot_data,
+            aes(fill = !!paste0("wa_max_", version)), colour = NA) +
+    labs(title = paste0("v", version)) +
+    scale_fill_manual(values = c("#FFFF99", "#FFE600", "#FF9900", "#FF1900", "#990000")) +
+    theme_void() +
+    theme(legend.position = "bottom")
+  
+  plot2 <- ggplot() +
+    geom_sf(data = plot_data,
+            aes(fill = diff), colour = NA) +
+    labs(title = paste0("v", version)) +
+    scale_fill_gradientn(low = "blue", mid = "white", high = "red", midpoint = 0) +
+    theme_void() +
+    theme(legend.position = "bottom")
+  
+  plot_list <- append(plot_list, plot1)
+  plot_list <- append(plot_list, plot2)
+  
+}
+```
+
+### 5.2. Compare Hogeboom alone v. unified
+
+```{r}
+plot_data <- allunified |> 
+  mutate(diff = fqt - wa_max_2.1)
+
+ggplot() +
+    geom_sf(data = plot_data,
+            aes(fill = diff), colour = NA) +
+    labs(title = paste0("v", version)) +
+    scale_fill_gradientn(low = "blue", mid = "white", high = "red", midpoint = 0) +
+    theme_void() +
+    theme(legend.position = "bottom")
+```
+
+### 5.3. Identify driving dataset
 
 ```{r}
 son_water_keydata_wa <- son_water |> 
@@ -509,7 +570,8 @@ FQT_driver <- ggplot() +
 ggsave(plot = FQT_driver, filename = here("./v2.1/outputs", "FQT_driver.png"))
 ```
 
-Combined. Here we show categories where locations are driven by a particular dataset, or driven by >1.
+Combined.
+Here we show categories where locations are driven by a particular dataset, or driven by \>1.
 
 ```{r}
 combo_data <- son_water_keydata_wa |> 
@@ -551,7 +613,7 @@ top_model_plot_highrisk <- ggplot() +
 ggsave(plot = top_model_plot_highrisk, filename = here("./v2.1/outputs", "all_drivers_highrisk.png"))
 ```
 
-## 7. Export
+## 6. Export
 
 ```{r}
 write_rds(son_water, here("./v2.1/outputs", "sbtn_son_water_v2.1.rds"))
