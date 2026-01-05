@@ -38,7 +38,7 @@ Load required packages
 
 ```{r}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, dplyr, magrittr, sf, terra, stars, exactextractr, skimr, readr, tidyr, openxlsx, mapview)
+pacman::p_load(here, dplyr, magrittr, sf, terra, stars, exactextractr, skimr, readr, tidyr, openxlsx, mapview, ggplot2)
 ```
 
 ```{r}
@@ -120,16 +120,16 @@ wmo_basins <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Fold
 #### 2.3.2. HydroSHEDS HydroBASINS Level 6 [Lehner & Grill 2013](https://www.hydrosheds.org/products/hydrobasins)
 
 ```{r}
-if (params$overwrite | !file.exists(here("./v2.1/outputs", "h6.rds"))){
+if (params$overwrite | !file.exists(here("./v2.0/outputs", "h6.rds"))){
   h6 <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Basins_HydroSHEDS_McGill", "v1.0", "HydroBASINS", "hybas_lev06_v1c.gpkg")) |> 
     select(HYBAS_ID) |>
     mutate(HYBAS_ID = as.factor(HYBAS_ID)) |>
     ## Link WMO basin with Hydroshed 6 that has the largest overlap
     st_join(wmo_basins, largest = TRUE)
   
-  write_rds(h6, here("./v2.1/outputs", "h6.rds")) 
+  write_rds(h6, here("./v2.0/outputs", "h6.rds")) 
 } else {
-  h6 <- read_rds(here("./v2.1/outputs", "h6.rds"))
+  h6 <- read_rds(here("./v2.0/outputs", "h6.rds"))
 }
 ```
 
@@ -178,7 +178,7 @@ wdp_n <- wdp |>
   exact_extract(h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                 append_cols = "HYBAS_ID", progress = TRUE) 
 
-skim(wdp_n)
+# skim(wdp_n)
 ```
 
 ```{r}
@@ -275,7 +275,7 @@ nox <- nox_csv |>
 nox_n <- exact_extract(nox, h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                        append_cols = "HYBAS_ID", progress = TRUE)
 
-skim(nox_n)
+# skim(nox_n)
 ```
 
 ```{r}
@@ -306,14 +306,14 @@ nox_n <- nox_n |>
 tnc_n <- exact_extract(tnc, h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                        append_cols = "HYBAS_ID", progress = TRUE)
 
-skim(tnc_n)
+# skim(tnc_n)
 ```
 
 ```{r}
 tpc_n <- exact_extract(tpc, h6, fun = c("mean", "median", "quantile", "majority", "coefficient_of_variation"), quantiles = 0.75,
                        append_cols = "HYBAS_ID", progress = TRUE)
 
-skim(tpc_n)
+# skim(tpc_n)
 ```
 
 ```{r}
@@ -408,7 +408,7 @@ son_water <- son_wa |>
   ) |>
   relocate(geom, .after = last_col())
 
-st_drop_geometry(son_water) |> skim()
+# st_drop_geometry(son_water) |> skim()
 ```
 
 ```{r}
@@ -428,8 +428,7 @@ son_water |>
 
 ## 6. Explore data
 
-We want to check:
-- In v2.0, which dataset is driving risk score in each location?
+We want to check: - In v2.0, which dataset is driving risk score in each location?
 i.e. which dataset has the max value?
 
 ```{r}
