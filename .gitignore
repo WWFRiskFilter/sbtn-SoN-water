@@ -10,3 +10,4 @@
 *.prj
 *.shx
 *.rds
+/.quarto/
