@@ -27,9 +27,6 @@ execute:
 params:
   sharepoint: "C:\\Users\\liam.bailey\\WWF-Deutschland\\FB-WuM-Daten - Water & Biodiversity Stewardship"
   overwrite: FALSE
-editor: 
-  markdown: 
-    wrap: sentence
 ---
 
 ## 1. Setup
@@ -426,120 +423,7 @@ son_water |>
   )
 ```
 
-## 6. Explore data
-
-We want to check:
-- In v1.1, which dataset is driving risk score in each location? i.e. which dataset has the max value?
-
-```{r}
-son_water_keydata_wa <- son_water |> 
-  sf::st_drop_geometry() |> 
-  select(HYBAS_ID, bws_n, wdp_n, wsb_n, wa_max) |> 
-  rowwise() |> 
-  mutate(BWS_top = case_when(is.na(bws_n) ~ FALSE,
-                             !is.na(bws_n) ~ bws_n == max(c(bws_n, wdp_n, wsb_n), na.rm = TRUE)),
-         WDP_top = case_when(is.na(wdp_n) ~ FALSE,
-                             !is.na(wdp_n) ~ wdp_n == max(c(bws_n, wdp_n, wsb_n), na.rm = TRUE)),
-         wsb_top = case_when(is.na(wsb_n) ~ FALSE,
-                             !is.na(wsb_n) ~ wsb_n == max(c(bws_n, wdp_n, wsb_n), na.rm = TRUE)),
-         combo = case_when(!any(c(BWS_top, WDP_top, wsb_top)) ~ NA,
-                           TRUE ~ sum(c(wsb_top, WDP_top, BWS_top)) > 1)) |> 
-  ungroup()
-
-son_water_keydata_wa_sf <- son_water |> 
-  select(HYBAS_ID) |> 
-  left_join(son_water_keydata_wa, by = "HYBAS_ID") |> 
-  st_transform("EPSG:8857") |> 
-  st_simplify(dTolerance = 10000) |> 
-  st_transform("EPSG:4326")
-```
-
-```{r}
-BWS_driver <- ggplot() +
-  geom_sf(data = son_water_keydata_wa_sf,
-          aes(fill = BWS_top, alpha = combo), colour = NA) +
-  scale_fill_manual(values = c("white", "blue")) +
-  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "none")
-
-ggsave(plot = BWS_driver, filename = here("./v1.1/outputs", "BWS_driver.png"))
-```
-
-```{r}
-WDP_driver <- ggplot() +
-  geom_sf(data = son_water_keydata_wa_sf,
-          aes(fill = WDP_top, alpha = combo), colour = NA) +
-  scale_fill_manual(values = c("white", "blue")) +
-  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "none")
-
-ggsave(plot = WDP_driver, filename = here("./v1.1/outputs", "WDP_driver.png"))
-```
-
-```{r}
-wsb_driver <- ggplot() +
-  geom_sf(data = son_water_keydata_wa_sf,
-          aes(fill = wsb_top, alpha = combo), colour = NA) +
-  scale_fill_manual(values = c("white", "blue")) +
-  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "none")
-
-ggsave(plot = wsb_driver, filename = here("./v1.1/outputs", "wsb_driver.png"))
-```
-
-Combined.
-Here we show categories where locations are driven by a particular dataset, or driven by \>1.
-
-```{r}
-combo_data <- son_water_keydata_wa |> 
-  group_by(HYBAS_ID) |> 
-  summarise(top_mod = case_when(combo ~ "Multiple",
-                                BWS_top ~ "BWS",
-                                WDP_top ~ "WDP",
-                                wsb_top ~ "wsb")) |> 
-  ungroup()
-
-combo_data_sf <- son_water_keydata_wa_sf |> 
-  left_join(combo_data, by = "HYBAS_ID")
-```
-
-```{r}
-top_model_plot <- ggplot() +
-  geom_sf(data = combo_data_sf,
-          aes(fill = top_mod), colour = NA) +
-  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "bottom")
-
-ggsave(plot = top_model_plot, filename = here("./v1.1/outputs", "all_drivers.png"))
-```
-
-```{r}
-top_model_plot_highrisk <- ggplot() +
-  geom_sf(data = combo_data_sf |> 
-            filter(wa_max >= 4),
-          aes(fill = top_mod), colour = NA) +
-  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "bottom")
-
-ggsave(plot = top_model_plot_highrisk, filename = here("./v1.1/outputs", "all_drivers_highrisk.png"))
-```
-
-## 7. Export
+## 6. Export
 
 ```{r}
 write_rds(son_water, here("./v1.1/outputs/", "sbtn_son_water_v1.1.rds"))

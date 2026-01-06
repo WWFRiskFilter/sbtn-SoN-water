@@ -27,9 +27,6 @@ execute:
 params:
   sharepoint: "C:\\Users\\liam.bailey\\WWF-Deutschland\\FB-WuM-Daten - Water & Biodiversity Stewardship"
   overwrite: FALSE
-editor: 
-  markdown: 
-    wrap: sentence
 ---
 
 ```{r}
@@ -44,9 +41,9 @@ sf::sf_use_s2(FALSE) # due to issues in HydroBASINS geometries
 
 ## Introduction
 
-:::{.callout-note}
-- Unified layer v2.0 replaces Blue Water Scarcity (Mekonnen & Hoekstra) and [Freshwater Quantity Targets v1.0 (Hogeboom et al. 2024)](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v1).
-- Unified layer v2.1 uses newly released [Freshwater Quantity Targets v2.0 (Hogeboom et al. 2024)](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v2).
+::: callout-note
+-   Unified layer v2.0 replaces Blue Water Scarcity (Mekonnen & Hoekstra) and [Freshwater Quantity Targets v1.0 (Hogeboom et al. 2024)](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v1).
+-   Unified layer v2.1 uses newly released [Freshwater Quantity Targets v2.0 (Hogeboom et al. 2024)](https://doi.org/10.4121/089afa18-bbd5-493e-8a6c-39e1ca7b2a59.v2).
 :::
 
 ## 1. Load data
@@ -430,190 +427,7 @@ son_water |>
   )
 ```
 
-## 5. Explore data
-3. How do conclusions differ when using Freshwater Quantity Targets v2.0 v. unified layer?
-4. Which water availability datasets are the drivers of risk (i.e. which dataset has the highest risk in each location)?
-
-Create a single simplified dataset with risk scores for v1.1, v2.0, and v2.1.
-
-```{r}
-unified2.0 <- read_sf(here("v2.0", "outputs", "sbtn_son_water_v2.0.shp")) |>
-  sf::st_drop_geometry()
-
-unified1.1 <- readRDS(here("v1.1", "outputs", "h6.rds")) |>
-  sf::st_drop_geometry()
-
-allunified <- son_water |> 
-  st_transform("EPSG:8857") |> 
-  st_simplify(dTolerance = 10000) |> 
-  st_transform(st_crs(son_water)) |> 
-  left_join(unified2.0 |> select(HYBAS_ID, wa_max_2.0), by = "HYBAS_ID") |> 
-  left_join(unified1.1 |> select(HYBAS_ID, wa_max_1.1), by = "HYBAS_ID") |> 
-  rename(wa_max_2.1 = wa_max)
-```
-
-### 5.1 How do risks differ between Blue Water Scarcity, Freshwater Quantity Targets v1.0, and Freshwater Quantity Targets v2.0?
-
-### 5.2. How does unified layers v1.1, v2.0, and v2.1 differ from one another?
-
-Compare how different unified layers compare for Water Availability.
-
-```{r}
-plot_list <- list()
-for(version in c("1.1", "2.0", "2.1")){
-  
-  plot_data <- allunified |> 
-    mutate(diff = !!paste0("wa_max_", version) - wa_max_1.1) |> 
-    select(ends_with(version), ends_with("1.1"), diff)
-  
-  plot1 <- ggplot() +
-    geom_sf(data = plot_data,
-            aes(fill = !!paste0("wa_max_", version)), colour = NA) +
-    labs(title = paste0("v", version)) +
-    scale_fill_manual(values = c("#FFFF99", "#FFE600", "#FF9900", "#FF1900", "#990000")) +
-    theme_void() +
-    theme(legend.position = "bottom")
-  
-  plot2 <- ggplot() +
-    geom_sf(data = plot_data,
-            aes(fill = diff), colour = NA) +
-    labs(title = paste0("v", version)) +
-    scale_fill_gradientn(low = "blue", mid = "white", high = "red", midpoint = 0) +
-    theme_void() +
-    theme(legend.position = "bottom")
-  
-  plot_list <- append(plot_list, plot1)
-  plot_list <- append(plot_list, plot2)
-  
-}
-```
-
-### 5.2. Compare Hogeboom alone v. unified
-
-```{r}
-plot_data <- allunified |> 
-  mutate(diff = fqt - wa_max_2.1)
-
-ggplot() +
-    geom_sf(data = plot_data,
-            aes(fill = diff), colour = NA) +
-    labs(title = paste0("v", version)) +
-    scale_fill_gradientn(low = "blue", mid = "white", high = "red", midpoint = 0) +
-    theme_void() +
-    theme(legend.position = "bottom")
-```
-
-### 5.3. Identify driving dataset
-
-```{r}
-son_water_keydata_wa <- son_water |> 
-  sf::st_drop_geometry() |> 
-  select(HYBAS_ID, bws_n, wdp_n, fqt_n, wa_max) |> 
-  rowwise() |> 
-  mutate(BWS_top = case_when(is.na(bws_n) ~ FALSE,
-                             !is.na(bws_n) ~ bws_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
-         WDP_top = case_when(is.na(wdp_n) ~ FALSE,
-                             !is.na(wdp_n) ~ wdp_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
-         FQT_top = case_when(is.na(fqt_n) ~ FALSE,
-                             !is.na(fqt_n) ~ fqt_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
-         combo = case_when(!any(c(BWS_top, WDP_top, FQT_top)) ~ NA,
-                           TRUE ~ sum(c(FQT_top, WDP_top, BWS_top)) > 1)) |> 
-  ungroup()
-
-son_water_keydata_wa_sf <- son_water |> 
-  select(HYBAS_ID) |> 
-  left_join(son_water_keydata_wa, by = "HYBAS_ID") |> 
-  st_transform("EPSG:8857") |> 
-  st_simplify(dTolerance = 10000) |> 
-  st_transform("EPSG:4326")
-```
-
-```{r}
-BWS_driver <- ggplot() +
-  geom_sf(data = son_water_keydata_wa_sf,
-          aes(fill = BWS_top, alpha = combo), colour = NA) +
-  scale_fill_manual(values = c("white", "blue")) +
-  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "none")
-
-ggsave(plot = BWS_driver, filename = here("./v2.1/outputs", "BWS_driver.png"))
-```
-
-```{r}
-WDP_driver <- ggplot() +
-  geom_sf(data = son_water_keydata_wa_sf,
-          aes(fill = WDP_top, alpha = combo), colour = NA) +
-  scale_fill_manual(values = c("white", "blue")) +
-  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "none")
-
-ggsave(plot = WDP_driver, filename = here("./v2.1/outputs", "WDP_driver.png"))
-```
-
-```{r}
-FQT_driver <- ggplot() +
-  geom_sf(data = son_water_keydata_wa_sf,
-          aes(fill = FQT_top, alpha = combo), colour = NA) +
-  scale_fill_manual(values = c("white", "blue")) +
-  scale_alpha_manual(values = c(1, 0.25), na.value = 0) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "none")
-
-ggsave(plot = FQT_driver, filename = here("./v2.1/outputs", "FQT_driver.png"))
-```
-
-Combined.
-Here we show categories where locations are driven by a particular dataset, or driven by \>1.
-
-```{r}
-combo_data <- son_water_keydata_wa |> 
-  group_by(HYBAS_ID) |> 
-  summarise(top_mod = case_when(combo ~ "Multiple",
-                                BWS_top ~ "BWS",
-                                WDP_top ~ "WDP",
-                                FQT_top ~ "FQT")) |> 
-  ungroup()
-
-combo_data_sf <- son_water_keydata_wa_sf |> 
-  left_join(combo_data, by = "HYBAS_ID")
-```
-
-```{r}
-top_model_plot <- ggplot() +
-  geom_sf(data = combo_data_sf,
-          aes(fill = top_mod), colour = NA) +
-  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "bottom")
-
-ggsave(plot = top_model_plot, filename = here("./v2.1/outputs", "all_drivers.png"))
-```
-
-```{r}
-top_model_plot_highrisk <- ggplot() +
-  geom_sf(data = combo_data_sf |> 
-            filter(wa_max >= 4),
-          aes(fill = top_mod), colour = NA) +
-  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "bottom")
-
-ggsave(plot = top_model_plot_highrisk, filename = here("./v2.1/outputs", "all_drivers_highrisk.png"))
-```
-
-## 6. Export
+## 5. Export
 
 ```{r}
 write_rds(son_water, here("./v2.1/outputs", "sbtn_son_water_v2.1.rds"))

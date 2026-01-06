@@ -43,18 +43,18 @@ Create a single (simplified) layer with data from all three versions
 
 ```{r}
 unified2.1 <- read_sf(here("v2.1", "outputs", "sbtn_son_water_v2.1.shp")) |> 
-  st_simplify(dTolerance = 0.01) 
+  st_simplify(dTolerance = 0.01)
 
-unified2.0 <- read_sf(here("v2.0", "outputs", "sbtn_son_water_v2.0.shp")) |>
-  sf::st_drop_geometry()
+unified2.0 <- read_sf(here("v2.0", "outputs", "sbtn_son_water_v2.0.shp")) |> 
+  st_simplify(dTolerance = 0.01)
 
-unified1.1 <- read_sf(here("v1.1", "outputs", "sbtn_son_water_v1.1.shp")) |>
-  sf::st_drop_geometry()
+unified1.1 <- read_sf(here("v1.1", "outputs", "sbtn_son_water_v1.1.shp")) |> 
+  st_simplify(dTolerance = 0.01)
 
 allunified <- unified2.1  |> 
   select(HYBAS_ID, fqt_raw, fqt_n, wa_max_2.1 = wa_max) |> 
-  left_join(unified2.0 |> select(HYBAS_ID, wa_max_2.0 = wa_max, fqt_n_v1.0 = fqt_n), by = "HYBAS_ID") |> 
-  left_join(unified1.1 |> select(HYBAS_ID, wa_max_1.1 = wa_max, wsb_n), by = "HYBAS_ID")
+  left_join(unified2.0 |> sf::st_drop_geometry() |> select(HYBAS_ID, wa_max_2.0 = wa_max, fqt_n_v1.0 = fqt_n), by = "HYBAS_ID") |> 
+  left_join(unified1.1 |> sf::st_drop_geometry() |> select(HYBAS_ID, wa_max_1.1 = wa_max, wsb_n), by = "HYBAS_ID")
 ```
 
 ## How do risks differ between Blue Water Scarcity, Freshwater Quantity Targets v1.0, and Freshwater Quantity Targets v2.0?
@@ -71,7 +71,9 @@ BlueWaterScarcity <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 FQTv1.0 <- ggplot() +
   geom_sf(data = allunified,
@@ -84,7 +86,9 @@ FQTv1.0 <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 FQTv2.0 <- ggplot() +
   geom_sf(data = allunified,
@@ -97,7 +101,9 @@ FQTv2.0 <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 combo <- BlueWaterScarcity + FQTv1.0 + FQTv2.0 + patchwork::plot_layout(nrow = 1, ncol = 3)
 
@@ -121,7 +127,9 @@ v1.1 <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 v2.0_diff <- ggplot() +
   geom_sf(data = plot_data,
@@ -133,7 +141,9 @@ v2.0_diff <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 v2.1_diff <- ggplot() +
   geom_sf(data = plot_data,
@@ -145,7 +155,9 @@ v2.1_diff <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 combo <- v1.1 + v2.0_diff + v2.1_diff + patchwork::plot_layout(nrow = 1, ncol = 3)
 
@@ -156,8 +168,8 @@ ggsave(plot = combo, filename = here("outputs", "plots", "hogeboom_check", "unif
 
 ```{r}
 plot_data <- allunified |> 
-  mutate(diff_v2.0 = as.factor(fqt_n_v1.0 - wa_max_2.0),
-         diff_v2.1 = as.factor(fqt_n - wa_max_2.1))
+  mutate(diff_2.0 = as.factor(fqt_n_v1.0 - wa_max_2.0),
+         diff_2.1 = as.factor(fqt_n - wa_max_2.1))
 
 onlyFQT_v2.0 <- ggplot() +
   geom_sf(data = plot_data,
@@ -169,7 +181,9 @@ onlyFQT_v2.0 <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 onlyFQT_v2.1 <- ggplot() +
   geom_sf(data = plot_data,
@@ -181,7 +195,9 @@ onlyFQT_v2.1 <- ggplot() +
   theme_void() +
   theme(legend.position = "bottom",
         legend.title.position = "top",
-        legend.key.width = unit(0.5, "in"))
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
 combo <- onlyFQT_v2.0 + onlyFQT_v2.1 + patchwork::plot_layout(nrow = 1, ncol = 2)
 
@@ -191,27 +207,99 @@ ggsave(plot = combo, filename = here("outputs", "plots", "hogeboom_check", "FQT_
 ## Which water availability datasets are the drivers of risk (i.e. which dataset has the highest risk in each location)?
 
 ```{r}
-combo_data <- son_water_keydata_wa |> 
-  group_by(HYBAS_ID) |> 
-  summarise(top_mod = case_when(combo ~ "Multiple",
+driver2.1 <- unified2.1 |> 
+  sf::st_drop_geometry() |> 
+  select(HYBAS_ID, bws_n, wdp_n, fqt_n, wa_max) |> 
+  rowwise() |> 
+  mutate(BWS_top = case_when(is.na(bws_n) ~ FALSE,
+                             !is.na(bws_n) ~ bws_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         WDP_top = case_when(is.na(wdp_n) ~ FALSE,
+                             !is.na(wdp_n) ~ wdp_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         FQT_top = case_when(is.na(fqt_n) ~ FALSE,
+                             !is.na(fqt_n) ~ fqt_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         combo = case_when(!any(c(BWS_top, WDP_top, FQT_top)) ~ NA,
+                           TRUE ~ sum(c(FQT_top, WDP_top, BWS_top)) > 1)) |> 
+  ungroup() |> 
+  mutate(unified_layer_v2.1 = case_when(combo ~ "Multiple",
                                 BWS_top ~ "BWS",
                                 WDP_top ~ "WDP",
-                                FQT_top ~ "FQT")) |> 
-  ungroup()
+                                FQT_top ~ "FQT"))
 
-combo_data_sf <- son_water_keydata_wa_sf |> 
-  left_join(combo_data, by = "HYBAS_ID")
+driver2.0 <- unified2.0 |> 
+  sf::st_drop_geometry() |> 
+  select(HYBAS_ID, bws_n, wdp_n, fqt_n, wa_max) |> 
+  rowwise() |> 
+  mutate(BWS_top = case_when(is.na(bws_n) ~ FALSE,
+                             !is.na(bws_n) ~ bws_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         WDP_top = case_when(is.na(wdp_n) ~ FALSE,
+                             !is.na(wdp_n) ~ wdp_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         FQT_top = case_when(is.na(fqt_n) ~ FALSE,
+                             !is.na(fqt_n) ~ fqt_n == max(c(bws_n, wdp_n, fqt_n), na.rm = TRUE)),
+         combo = case_when(!any(c(BWS_top, WDP_top, FQT_top)) ~ NA,
+                           TRUE ~ sum(c(FQT_top, WDP_top, BWS_top)) > 1)) |> 
+  ungroup() |> 
+  mutate(unified_layer_v2.0 = case_when(combo ~ "Multiple",
+                                BWS_top ~ "BWS",
+                                WDP_top ~ "WDP",
+                                FQT_top ~ "FQT"))
+
+driver1.1 <- unified1.1 |> 
+  sf::st_drop_geometry() |> 
+  select(HYBAS_ID, bws_n, wdp_n, wsb_n, wa_max) |> 
+  rowwise() |> 
+  mutate(BWS_top = case_when(is.na(bws_n) ~ FALSE,
+                             !is.na(bws_n) ~ bws_n == max(c(bws_n, wdp_n, wsb_n), na.rm = TRUE)),
+         WDP_top = case_when(is.na(wdp_n) ~ FALSE,
+                             !is.na(wdp_n) ~ wdp_n == max(c(bws_n, wdp_n, wsb_n), na.rm = TRUE)),
+         WSB_top = case_when(is.na(wsb_n) ~ FALSE,
+                             !is.na(wsb_n) ~ wsb_n == max(c(bws_n, wdp_n, wsb_n), na.rm = TRUE)),
+         combo = case_when(!any(c(BWS_top, WDP_top, WSB_top)) ~ NA,
+                           TRUE ~ sum(c(WSB_top, WDP_top, BWS_top)) > 1)) |> 
+  ungroup() |> 
+  mutate(unified_layer_v1.1 = case_when(combo ~ "Multiple",
+                                BWS_top ~ "BWS",
+                                WDP_top ~ "WDP",
+                                WSB_top ~ "WSB"))
+
+plot_data <- allunified |> 
+  select(HYBAS_ID) |> 
+  left_join(driver2.1 |> select(HYBAS_ID, unified_layer_v2.1)) |> 
+  left_join(driver2.0 |> select(HYBAS_ID, unified_layer_v2.0)) |> 
+  left_join(driver1.1 |> select(HYBAS_ID, unified_layer_v1.1)) |> 
+  pivot_longer(cols = starts_with("unified_layer"))
 ```
 
 ```{r}
 top_model_plot <- ggplot() +
-  geom_sf(data = combo_data_sf,
-          aes(fill = top_mod), colour = NA) +
-  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb")) +
+  geom_sf(data = plot_data,
+          aes(fill = as.factor(value)), colour = NA) +
+  geom_sf(data = country_borders,
+          fill = NA, colour = "black", linewidth = 0.1) +
+  facet_wrap(facets = ~name) +
+  scale_fill_manual(values = c("#66c2a5", "#fc8d62", "grey90", "#8da0cb", "#e78ac3"),
+                    labels = c("BWS", "Hogeboom", ">1 Driver", "Water Depletion", "Blue Water Scarcity"),
+                    name = "Driver of risk in unified layer (highest risk)") +
   theme_void() +
-  theme(panel.background = element_rect(fill = "white", colour = NA),
-        plot.background = element_rect(fill = "white", colour = NA),
-        legend.position = "bottom")
+  theme(legend.position = "bottom",
+        legend.title.position = "top",
+        panel.background = element_rect(fill = "white", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)) +
+  guides(fill = guide_legend(nrow = 1))
 
-ggsave(plot = top_model_plot, filename = here("./v2.1/outputs", "all_drivers.png"))
+ggsave(plot = top_model_plot, filename = here("outputs", "plots", "hogeboom_check", "all_drivers.png"), width = 15, height = 5)
 ```
+
+Stats
+
+```{r}
+plot_data |> 
+  sf::st_drop_geometry() |> 
+  group_by(name, value) |> 
+  summarise(n = n()) |> 
+  group_by(name) |> 
+  mutate(total = sum(n),
+         n_perc = n/total) |> 
+  ungroup() |> 
+  tidyr::pivot_wider(names_from = value, values_from = n_perc)
+```
+
