@@ -1,13 +1,10 @@
 ## State of Nature layers for Water Availability and Water Pollution to support SBTN Step 1: Assess and Step 2: Interpret & Prioritize
 
-This repo builds on work done by Rafael in https://github.com/Qnature/sbtn-SoN-water (which is itself a fork from https://github.com/rafaexx/sbtn-SoN-water). 
-To match new SBTN guidelines, we are extracting *individual* indicators rather than generating a single unified layer.
-These individual layers are converted the hydroshed level 7 to be spatially comparable to all other RFS indicators.
-All other code remains the same. See the original repo description below:
+This repo builds on work done by Rafael in https://github.com/Qnature/sbtn-SoN-water (which is itself a fork from https://github.com/rafaexx/sbtn-SoN-water). To match new SBTN guidelines, we are extracting *individual* indicators rather than generating a single unified layer. These individual layers are converted the hydroshed level 7 to be spatially comparable to all other RFS indicators. All other code remains the same. See the original repo description below:
 
-### ORIGINAL DESCRIPTION
+### Newest Release
 
-Version 2 (July 2024)
+Version 2.1 (Feb 2026)
 
 This repo is the result of a collaboration between SBTN, WRI, and WWF. It contains the code to generate the two ready-to-use unified layers of State of Nature (SoN) for water -- one for water availability and one for water pollution -- in line with the [SBTN Technical Guidance for Steps 1: Assess and Step 2: Interpret & Prioritize](https://sciencebasedtargetsnetwork.org/resources/) (July 2024). The main outputs contain the maximum values of Water Availability and of Water Pollution as well as the individual indicators' values. This information is available at different spatial resolutions, thus in two data formats: 1) a shapefile with values at HydroBasins (Pfafstetter level 6); and 2) an excel file with values at sub-national divisions (Adm1) and national divisions (Adm0). These datasets and complete documentation are publicly available for download from <https://doi.org/10.5281/zenodo.12702261> .
 
