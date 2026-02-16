@@ -473,8 +473,11 @@ compare_wp <- son_water |>
   mutate(wp_diff = wp_max - wp_max_2.0) |> 
   arrange(desc(wp_diff)) |> 
   select(HYBAS_ID, starts_with("wp_"), cep_raw, cep_raw_2.0, nox_raw, nox_raw_2.0, tnc_raw, tnc_raw_2.0, tpc_raw, tpc_raw_2.0)
+```
 
-compare_wp
+```{r}
+## Expect no difference. Nothing has changed!
+hist(compare_wp$wp_diff)
 ```
 
 ```{r}
