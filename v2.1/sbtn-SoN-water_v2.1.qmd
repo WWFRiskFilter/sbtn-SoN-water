@@ -105,6 +105,7 @@ tnc <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_
 
 ```{r}
 tpc <- rast(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "WaterQuality_FreshwaterNutrientPollution_McDowell20", "data_from_author", "WQ_Variables_Extraction", "TN_Conc.tif"))
+                      "TP_Conc.tif"))
 ```
 
 ### 1.3. Aggregation unit
