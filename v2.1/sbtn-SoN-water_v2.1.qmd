@@ -123,7 +123,9 @@ wmo_basins <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Fold
 
 ```{r}
 if (params$overwrite | !file.exists(here("./v2.1/outputs", "h6.rds"))){
-  h6 <- st_read(file.path(params$sharepoint, "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Basins_HydroSHEDS_McGill", "v1.0", "HydroBASINS", "hybas_lev06_v1c.gpkg")) |> 
+  h6 <- st_read(file.path(params$sharepoint,
+                          # "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Basins_HydroSHEDS_McGill", "v1.0", "HydroBASINS",
+                          "hybas_lev06_v1c.gpkg")) |> 
     select(HYBAS_ID) |>
     mutate(HYBAS_ID = as.factor(HYBAS_ID)) |>
     ## Link WMO basin with Hydroshed 6 that has the largest overlap
@@ -460,12 +462,6 @@ hist(round(compare_wa$bws_raw - compare_wa$bws_raw_2.0, 5))
 
 ```{r}
 hist(round(compare_wa$wdp_raw - compare_wa$wdp_raw_2.0, 5))
-```
-
-
-```{r}
-## Expect no difference. Nothing has changed!
-hist(compare$wp_diff)
 ```
 
 ```{r}

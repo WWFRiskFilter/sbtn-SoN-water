@@ -435,18 +435,14 @@ v1.1 <- read_excel(here("v1.1/outputs/sbtn_son_water_v1.1.xlsx"))
 compare_wa <- son_water |> 
   st_drop_geometry() |> 
   left_join(v1.1 |> 
-              select(HYBAS_ID, wa_max_1.1 = wa_max, fqt_raw_1.1 = fqt_raw, bws_raw_1.1 = bws_raw, wdp_raw_1.1 = wdp_raw),
+              select(HYBAS_ID, wa_max_1.1 = wa_max, wsb_raw_1.1 = wsb_raw, bws_raw_1.1 = bws_raw, wdp_raw_1.1 = wdp_raw),
             by = "HYBAS_ID") |> 
   mutate(wa_diff = wa_max - wa_max_1.1)
 ```
 
 ```{r}
-## We expect some small changes due to new Hogeboom data
+## We expect changes because we replace Mekonnen et al. by Hogeboom et al.
 hist(compare_wa$wa_diff)
-```
-
-```{r}
-hist(round(compare_wa$fqt_raw - compare_wa$fqt_raw_1.1, 5))
 ```
 
 ```{r}
@@ -455,12 +451,6 @@ hist(round(compare_wa$bws_raw - compare_wa$bws_raw_1.1, 5))
 
 ```{r}
 hist(round(compare_wa$wdp_raw - compare_wa$wdp_raw_1.1, 5))
-```
-
-
-```{r}
-## Expect no difference. Nothing has changed!
-hist(compare$wp_diff)
 ```
 
 ```{r}
@@ -472,8 +462,11 @@ compare_wp <- son_water |>
   mutate(wp_diff = wp_max - wp_max_1.1) |> 
   arrange(desc(wp_diff)) |> 
   select(HYBAS_ID, starts_with("wp_"), cep_raw, cep_raw_1.1, nox_raw, nox_raw_1.1, tnc_raw, tnc_raw_1.1, tpc_raw, tpc_raw_1.1)
+```
 
-compare_wp
+```{r}
+## Expect no difference. Nothing has changed!
+hist(compare_wp$wp_diff)
 ```
 
 ```{r}
