@@ -10,4 +10,5 @@
 *.prj
 *.shx
 *.rds
+*.tif
 /.quarto/

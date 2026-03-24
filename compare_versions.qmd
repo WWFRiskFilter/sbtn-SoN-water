@@ -2,7 +2,9 @@
 title: "Compare versions (Water Availability)"
 author: "Liam D. Bailey"
 format: html
-editor: source
+params:
+  sharepoint: "/Users/liam/Downloads"
+  overwrite: TRUE
 ---
 
 ```{r}
@@ -16,12 +18,12 @@ sf::sf_use_s2(FALSE) # due to issues in HydroBASINS geometries
 
 country_borders <- read_sf(
   file.path(
-    "C:\\Users\\liam.bailey\\WWF-Deutschland\\FB-WuM-Daten - Water & Biodiversity Stewardship",
-    "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis",
-    "01_Data", "Borders_WorldBank", "World Bank Official Boundaries - Admin 0.gpkg"
+    params$sharepoint,
+    # "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "01_Data", "Borders_WorldBank",
+    "World Bank Official Boundaries - Admin 0.gpkg"
   )
 ) |> 
-  sf::st_simplify(dTolerance = 0.01)
+  sf::st_simplify(dTolerance = 0.15)
 ```
 
 ## Introduction

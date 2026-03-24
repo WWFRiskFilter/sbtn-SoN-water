@@ -22,6 +22,7 @@ Load required packages
 ```{r}
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(here, dplyr, readr, readxl, sf, tidyr, terra, fasterize, purrr, exactextractr, skimr, mapview, openxlsx)
+mem.maxVSize(30000)
 ```
 
 ```{r}
@@ -63,7 +64,9 @@ adm0 <- read_sf(
     params$sharepoint,
     # "10_RiskSuite", "RFS_New_Folders", "05_Data_and_Analysis", "02_Analysis", "RFSAssessmentUnits", "output", "final",
     "RFSlocations_EPSG4326.gpkg"
-  ))
+  )) |> 
+  filter(SOURCE %in% c("World Bank", "HydroBASIN7")) |> 
+  rename(LOCATION_ID = LOCATION)
 ```
 
 *Sub-national level administrative division*
@@ -82,8 +85,11 @@ adm1 <- st_read(
 
 ```{r}
 fasterize_son_water <- function(var){
-  fasterize(son_water, raster(son_water, res = 0.01), field = var, fun = "max") |>
-    terra::writeRaster(here(params$version, "outputs", "temp_raster", paste0(var, ".tif")), overwrite = TRUE)
+  if (!file.exists(here(params$version, "outputs", "temp_raster", paste0(var, ".tif"))) | (file.exists(here(params$version, "outputs", "temp_raster", paste0("wdp_weight_", var, ".tif"))) & params$overwrite)){
+    fasterize(son_water, raster(son_water, res = 0.01), field = var, fun = "max") |>
+      terra::writeRaster(here(params$version, "outputs", "temp_raster", paste0(var, ".tif")), overwrite = TRUE)
+  }
+  return(NULL)
 }
 
 map(list("wdp_n", "fqt_n", "cep_n", "nox_n", "pgp_n"), fasterize_son_water)
@@ -144,8 +150,8 @@ waterGap3_consumption <- read_sf(
 
 fasterize_vars <- function(var){
   if (!file.exists(here(params$version, "outputs", "temp_raster", paste0("wdp_weight_", var, ".tif"))) | (file.exists(here(params$version, "outputs", "temp_raster", paste0("wdp_weight_", var, ".tif"))) & params$overwrite)){
-     fasterize(waterGap3_consumption, raster(waterGap3_consumption, res = 0.01), field = var, fun = "max") |>
-    writeRaster(here(params$version, "outputs", "temp_raster", paste0("wdp_weight_", var, ".tif")), overwrite = TRUE) 
+    fasterize(waterGap3_consumption, raster(waterGap3_consumption, res = 0.01), field = var, fun = "max") |>
+      writeRaster(here(params$version, "outputs", "temp_raster", paste0("wdp_weight_", var, ".tif")), overwrite = TRUE) 
   }
   return(NULL)
 }
@@ -154,7 +160,7 @@ map(list("dom", "ind", "irr", "liv", "tot"), fasterize_vars)
 ```
 
 ```{r}
-wdp_weights <- list.files(here(), pattern = "wdp_weight_", recursive = TRUE) |> 
+wdp_weights <- list.files(here(), pattern = "wdp_weight_", recursive = TRUE, full.names = TRUE) |> 
   map(rast) |> 
   set_names("dom", "ind", "irr", "liv", "tot")
 ```
@@ -179,7 +185,7 @@ fqt_weights <- list(
       "wfbl_dom_m3y",
       "w001001.adf"
     )
-    ),
+  ),
   rast(
     file.path(
       params$sharepoint,
@@ -232,51 +238,67 @@ bws_adm0 <- aqueduct_adm0 |>
     # rescale values 0-5 to 1-5 applying (new_max - new_min) * (x - min_old) / (max_old - min_old) + min_new
     score = (5-1) * ((score-0) / (5-0)) + 1 
   ) |> 
-  select(GID_0 = gid_0, weight, score) |> 
+  select(LOCATION_ID = gid_0, weight, score) |> 
   pivot_wider(names_from = weight, values_from = score, names_prefix = "bws_") |> 
-  relocate(GID_0, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot)
+  relocate(LOCATION_ID, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot)
 
-bws_adm0 <- bws_adm0 |> 
-  bind_rows(
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z01"),
-    filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z02"),
-    filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z03"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z04"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z05"),
-    filter(bws_adm0, GID_0 == "PAK") |> mutate(GID_0 = "Z06"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z07"),
-    filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z08"),
-    filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z09")
-  )
+## TODO: Do we want to adjust disputed areas in same way?
+# bws_adm0 <- bws_adm0 |> 
+#   bind_rows(
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z01"),
+#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z02"),
+#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z03"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z04"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z05"),
+#     filter(bws_adm0, GID_0 == "PAK") |> mutate(GID_0 = "Z06"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z07"),
+#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z08"),
+#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z09")
+#   )
 ```
 
 ```{r}
-son_water_adm0 <- adm0 |>
+bws_adm0_locationID <- adm0 |> 
+  left_join(bws_adm0, by = "LOCATION_ID")
+
+bws_adm0_sovereign <- adm0 |> 
+  left_join(bws_adm0, by = c("SOVEREIGN" = "LOCATION_ID"))
+
+bws_adm0_combo <- bws_adm0_locationID |> 
+  filter(!is.na(bws_n)) |> 
+  bind_rows(
+    bws_adm0_sovereign |> 
+      filter(!LOCATION_ID %in% bws_adm0_locationID$LOCATION_ID[!is.na(bws_adm0_locationID$bws_n)] & !is.na(bws_n))
+  )
+
+son_water_adm0_extract <- adm0 |>
   # baseline water stress (bws)
-  left_join(bws_adm0, by = "GID_0") |> 
+  left_join(bws_adm0_combo |> st_drop_geometry(), by = "LOCATION_ID") |> 
   # water depletion (wdp)
-  left_join(exact_extract(list_wa$wdp_n, adm0, fun = "mean", append_cols = "GID_0", progress = TRUE) |> rename(wdp_n = mean), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$dom, wdp_dom, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$ind, wdp_ind, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$irr, wdp_irr, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$liv, wdp_liv, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$tot, wdp_tot, adm0, "GID_0"), by = "GID_0") |>
+  left_join(exact_extract(list_wa$wdp_n, adm0, fun = "mean", append_cols = "LOCATION_ID", progress = TRUE) |> rename(wdp_n = mean), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$dom, wdp_dom, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$ind, wdp_ind, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$irr, wdp_irr, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$liv, wdp_liv, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$tot, wdp_tot, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
   # freshwater quantity target (fqt)
-  left_join(exact_extract(list_wa$fqt_n, adm0, fun = "mean", append_cols = "GID_0", progress = TRUE) |> rename(fqt_n = mean), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$agr, fqt_agr, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$dom, fqt_dom, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$ind, fqt_ind, adm0, "GID_0"), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$tot, fqt_tot, adm0, "GID_0"), by = "GID_0") |> 
+  left_join(exact_extract(list_wa$fqt_n, adm0, fun = "mean", append_cols = "LOCATION_ID", progress = TRUE) |> rename(fqt_n = mean), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$agr, fqt_agr, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$dom, fqt_dom, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$ind, fqt_ind, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$tot, fqt_tot, adm0, "LOCATION_ID"), by = "LOCATION_ID") |> 
   # coastal eutrophication potential (cep)
-  left_join(exact_extract(list_wp$cep_n, adm0, fun = "mean", append_cols = "GID_0", progress = TRUE) |> rename(cep_n = mean), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wp$cep_n, wp_weights, cep_agr, adm0, "GID_0"), by = "GID_0") |>
+  left_join(exact_extract(list_wp$cep_n, adm0, fun = "mean", append_cols = "LOCATION_ID", progress = TRUE) |> rename(cep_n = mean), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wp$cep_n, wp_weights, cep_agr, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
   # nitrate-nitrite concentration (nox)
-  left_join(exact_extract(list_wp$nox_n, adm0, fun = "mean", append_cols = "GID_0", progress = TRUE) |> rename(nox_n = mean), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm0, "GID_0"), by = "GID_0") |>
+  left_join(exact_extract(list_wp$nox_n, adm0, fun = "mean", append_cols = "LOCATION_ID", progress = TRUE) |> rename(nox_n = mean), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm0, "LOCATION_ID"), by = "LOCATION_ID") |>
   # periphyton growth potential (pgp)
-  left_join(exact_extract(list_wp$pgp_n, adm0, fun = "mean", append_cols = "GID_0", progress = TRUE) |> rename(pgp_n = mean), by = "GID_0") |>
-  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm0, "GID_0"), by = "GID_0") |>
-  
+  left_join(exact_extract(list_wp$pgp_n, adm0, fun = "mean", append_cols = "LOCATION_ID", progress = TRUE) |> rename(pgp_n = mean), by = "LOCATION_ID") |>
+  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm0, "LOCATION_ID"), by = "LOCATION_ID")
+
+## Calculate max values for all
+son_water_adm0 <- son_water_adm0_extract |> 
   mutate(across(where(is.numeric), ~ round(.x, 1))) |> 
   rowwise() |> 
   mutate(
@@ -292,7 +314,6 @@ son_water_adm0 <- adm0 |>
   ungroup() |> 
   relocate(wa_max_n:wa_max_tot, .before = bws_n) |>
   relocate(wp_max_n:wp_max_agr, .before = cep_n) |> 
-  relocate(geometry, .after = last_col()) |> 
   mutate(across(where(is.numeric), ~ if_else(between(.x, 1, 5), .x, NA)))
 ```
 
@@ -432,7 +453,7 @@ write.xlsx(list(
 *National level*
 
 ```{r}
-write_rds(son_water_adm0, here("outputs", "adm_level", "sbtn_son_water_v2_adm0.rds"))
+write_rds(son_water_adm0, here(params$version, "outputs", "adm_level", "sbtn_son_water_v2.1_adm0.rds"))
 ```
 
 ```{r}
