@@ -35,7 +35,7 @@ params:
 
 ## SETUP
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(here, dplyr, magrittr, sf, terra, stars, exactextractr, skimr, readr, tidyr, openxlsx, mapview, ggplot2)
+pacman::p_load(here, dplyr, magrittr, sf, terra, stars, exactextractr, skimr, readr, tidyr, openxlsx, mapview, ggplot2, readxl)
 sf::sf_use_s2(FALSE) # due to issues in HydroBASINS geometries
 ```
 
@@ -468,7 +468,7 @@ hist(compare_wa$wa_diff)
 ```
 
 ```{r}
-hist(round(compare_wa$fqt_raw - compare_wa$fqt_raw_2.0, 5))
+hist(round(compare_wa$fqt_raw - compare_wa$fqt_raw_2.0/100, 5))
 ```
 
 ```{r}
