@@ -252,20 +252,6 @@ bws_adm0 <- aqueduct_adm0 |>
   select(LOCATION_ID = gid_0, weight, score) |> 
   pivot_wider(names_from = weight, values_from = score, names_prefix = "bws_") |> 
   relocate(LOCATION_ID, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot)
-
-## TODO: Do we want to adjust disputed areas in same way?
-# bws_adm0 <- bws_adm0 |> 
-#   bind_rows(
-#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z01"),
-#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z02"),
-#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z03"),
-#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z04"),
-#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z05"),
-#     filter(bws_adm0, GID_0 == "PAK") |> mutate(GID_0 = "Z06"),
-#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z07"),
-#     filter(bws_adm0, GID_0 == "CHN") |> mutate(GID_0 = "Z08"),
-#     filter(bws_adm0, GID_0 == "IND") |> mutate(GID_0 = "Z09")
-#   )
 ```
 
 ```{r}
@@ -338,15 +324,21 @@ st_drop_geometry(son_water_adm0) |>
 ```{r}
 bws_adm1 <- aqueduct_adm1 |> 
   filter(indicator_name == "bws") |> 
+  mutate(
+    weight = if_else(weight == "One", "n", tolower(weight)),
+    score = na_if(score, -9999),
+    # rescale values 0-5 to 1-5 applying (new_max - new_min) * (x - min_old) / (max_old - min_old) + min_new
+    score = (5-1) * ((score-0) / (5-0)) + 1 
+  ) |> 
   left_join(GADM_trans |> select(GID_1, ADM1CD_c), by = c("gid_1" = "GID_1")) |> 
   filter(!is.na(ADM1CD_c)) |> ## Some cases where there is no match (disputed)
   select(ADM1CD_c, GID_1 = gid_1, weight, score) |> 
   pivot_wider(names_from = weight, values_from = score, names_prefix = "bws_") |> 
-  relocate(ADM1CD_c, GID_1, bws_One, bws_Dom, bws_Ind, bws_Irr, bws_Liv, bws_Tot)
+  relocate(ADM1CD_c, GID_1, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot)
 ```
 
 ```{r}
-son_water_adm1 <- adm1 |>
+son_water_adm1_extract <- adm1 |>
   # baseline water stress (bws)
   left_join(bws_adm1, by = "ADM1CD_c") |> 
   # water depletion (wdp)
@@ -370,7 +362,9 @@ son_water_adm1 <- adm1 |>
   left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
   # periphyton growth potential (pgp)
   left_join(exact_extract(list_wp$pgp_n, adm1, fun = "mean", append_cols = "ADM1CD_c", progress = TRUE) |> rename(pgp_n = mean), by = "ADM1CD_c") |>
-  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c")
+
+son_water_adm1 <- son_water_adm1_extract |> 
   mutate(across(where(is.numeric), ~ round(.x, 1))) |> 
   rowwise() |> 
   mutate(
@@ -386,7 +380,6 @@ son_water_adm1 <- adm1 |>
   ungroup() |> 
   relocate(wa_max_n:wa_max_tot, .before = bws_n) |>
   relocate(wp_max_n:wp_max_agr, .before = cep_n) |> 
-  relocate(geometry, .after = last_col()) |> 
   mutate(across(where(is.numeric), ~ if_else(between(.x, 1, 5), .x, NA)))
 ```
 
@@ -400,11 +393,11 @@ st_drop_geometry(son_water_adm1) |>
 ```{r}
 key_descriptions <- tribble(
   ~Key,    ~Description,     
-  "wa_max",    "Maximum value between water availability layers: bws, wdp, bwr", 
+  "wa_max",    "Maximum value between water availability layers: bws, wdp, fqt", 
   "wp_max",  "Maximum value between water pollution layers: cep, nox, pgp", 
   "bws","Baseline Water Stress",     
   "wdp","Water depletion",      
-  "bwr","Blue Water Reduction Target",
+  "fqt","Freshwater Quantity Target",
   "cep","Coastal Eutrophication Potential",
   "nox","Nitrate-Nitrite Concentration",
   "pgp","Periphyton Growth Potential",
@@ -422,7 +415,7 @@ key_descriptions <- tribble(
   "", "* Data for 'water demand' differs depending on the indicator aggregated",
   "bws","Water withdrawal from PCR-GLOBWB 2",
   "wdp","Water consumption from WaterGAP 3",
-  "bwr","Blue water footprint from Water Footprint Network",
+  "fqt","Freshwater Quantity Target from Water Footprint Network",
   "", "** For the water pollution indicators we used cropland extend from Potapov et al. 2021 (https://www.nature.com/articles/s43016-021-00429-z)"
 )
 ```
@@ -431,10 +424,10 @@ key_descriptions <- tribble(
 write.xlsx(list(
   "Help" = key_descriptions,
   "National level" = st_drop_geometry(son_water_adm0) |> 
-    mutate(notes = if_else(GID_0 %in% c("RUS", "CAN", "CHN", "USA", "BRA", "AUS", "IND", "ARG", "KAZ", "DZA"),
+    mutate(notes = if_else(LOCATION_ID %in% c("RUS", "CAN", "CHN", "USA", "BRA", "AUS", "IND", "ARG", "KAZ", "DZA"),
                            "Not recommended to be used. Average values for such large country are not representative. Use values from sub-national level instead.", NA)), 
   "Sub-national level" = st_drop_geometry(son_water_adm1)
-), file = here("outputs", "adm_level", "sbtn_son_water_v2_adm_level.xlsx"), rowNames = FALSE)
+), file = here("v2.1", "outputs", "adm_level", "sbtn_son_water_v2.1_adm_level.xlsx"), rowNames = FALSE)
 ```
 
 *National level*
@@ -443,25 +436,17 @@ write.xlsx(list(
 write_rds(son_water_adm0, here(params$version, "outputs", "adm_level", "sbtn_son_water_v2.1_adm0.rds"))
 ```
 
-```{r}
-# st_write(son_water_adm0, here("outputs", "adm_level", "sbtn_son_water_v2_adm0.shp"), layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
-```
-
 *Sub-national level*
 
 ```{r}
-write_rds(son_water_adm1, here(params$version, "outputs", "adm_level", "sbtn_son_water_v2_adm1.rds"))
-```
-
-```{r}
-# st_write(son_water_adm1, here("outputs", "adm_level", "sbtn_son_water_v2_adm1.shp"), layer_options = "ENCODING=UTF-8", delete_layer = TRUE)
+write_rds(son_water_adm1, here(params$version, "outputs", "adm_level", "sbtn_son_water_v2.1_adm1.rds"))
 ```
 
 ## 7. View outputs
 
 ```{r}
-son_water_adm0 <- read_rds(here("outputs", "adm_level", "sbtn_son_water_v2_adm0.rds"))
-son_water_adm1 <- read_rds(here("outputs", "adm_level", "sbtn_son_water_v2_adm1.rds"))
+son_water_adm0 <- read_rds(here("v2.1", "outputs", "adm_level", "sbtn_son_water_v2.1_adm0.rds"))
+son_water_adm1 <- read_rds(here("v2.1", "outputs", "adm_level", "sbtn_son_water_v2.1_adm1.rds"))
 ```
 
 ```{r}
