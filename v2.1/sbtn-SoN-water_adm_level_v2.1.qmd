@@ -2,7 +2,7 @@
 title: "SBTN State of Nature Water unified layers"
 subtitle: "water availability and water pollution - National and Sub-national level, weighted by sector"
 author: "Liam D. Bailey"
-date: "July 2, 2024"
+date: "March 27, 2026"
 engine: knitr
 format:
   html:
@@ -233,7 +233,9 @@ wp_weights <- rast(
 
 ```{r}
 aggregate_to_adm <- function(indicator, weight_by, key, to_adm, adm_id){
-  exact_extract(indicator, to_adm, fun = "weighted_mean", weights = resample(weight_by, indicator), default_weight = 0, append_cols = adm_id, progress = TRUE) |> 
+  ## If the whole area is 0 (e.g. no cropland) all data is equally weighted and we take mean
+  ## Previously, these areas would get weighted as 0 and we end up with NA, even though there is data available
+  exact_extract(indicator, to_adm, fun = "weighted_mean", weights = resample(weight_by, indicator)+1e-10, default_weight = 0, append_cols = adm_id, progress = TRUE) |> 
     rename({{key}} := weighted_mean)
 } 
 ```
