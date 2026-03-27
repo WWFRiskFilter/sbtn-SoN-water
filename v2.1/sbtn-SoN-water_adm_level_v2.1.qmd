@@ -81,6 +81,17 @@ adm1 <- st_read(
 )
 ```
 
+Read in translation table so we can match to Aqueduct data
+
+```{r}
+GADM_trans <- read.csv(
+  file.path(
+    params$sharepoint,
+    "GADM_WB_translation.csv"
+  )
+)
+```
+
 ## 3. Rasterize SoN water layers
 
 ```{r}
@@ -327,63 +338,39 @@ st_drop_geometry(son_water_adm0) |>
 ```{r}
 bws_adm1 <- aqueduct_adm1 |> 
   filter(indicator_name == "bws") |> 
-  mutate(
-    weight = if_else(weight == "One", "n", tolower(weight)),
-    score = na_if(score, -9999),
-    # rescale values 0-5 to 1-5 applying (new_max - new_min) * (x - min_old) / (max_old - min_old) + min_new
-    score = (5-1) * ((score-0) / (5-0)) + 1 
-  ) |> 
-  select(GID_1 = gid_1, weight, score) |> 
+  left_join(GADM_trans |> select(GID_1, ADM1CD_c), by = c("gid_1" = "GID_1")) |> 
+  filter(!is.na(ADM1CD_c)) |> ## Some cases where there is no match (disputed)
+  select(ADM1CD_c, GID_1 = gid_1, weight, score) |> 
   pivot_wider(names_from = weight, values_from = score, names_prefix = "bws_") |> 
-  relocate(GID_1, bws_n, bws_dom, bws_ind, bws_irr, bws_liv, bws_tot) |> 
-  mutate(GID_1 = case_when(
-    GID_1 == "IND.14_1" ~ "Z01.14_1",
-    GID_1 == "CHN.28_1" ~ "Z02.28_1",
-    GID_1 == "CHN.29_1" ~ "Z03.29_1",
-    GID_1 == "IND.13_1" ~ "Z04.13_1",
-    GID_1 == "IND.35_1" ~ "Z05.35_1",
-    GID_1 == "PAK.1_1" ~ "Z06.1_1",
-    GID_1 == "PAK.6_1" ~ "Z06.6_1",
-    GID_1 == "IND.3_1" ~ "Z07.3_1",
-    .default = GID_1
-  ))
-
-bws_adm1 <- bws_adm1 |> 
-  bind_rows(
-    filter(bws_adm1, GID_1 == "Z02.28_1") |> mutate(GID_1 = "Z03.28_1"),
-    filter(bws_adm1, GID_1 == "Z03.29_1") |> mutate(GID_1 = "Z08.29_1"),
-    filter(bws_adm1, GID_1 == "Z04.13_1") |> mutate(GID_1 = "Z09.13_1"),
-    filter(bws_adm1, GID_1 == "Z05.35_1") |> mutate(GID_1 = "Z09.35_1")
-  )
+  relocate(ADM1CD_c, GID_1, bws_One, bws_Dom, bws_Ind, bws_Irr, bws_Liv, bws_Tot)
 ```
 
 ```{r}
 son_water_adm1 <- adm1 |>
   # baseline water stress (bws)
-  left_join(bws_adm1, by = "GID_1") |> 
+  left_join(bws_adm1, by = "ADM1CD_c") |> 
   # water depletion (wdp)
-  left_join(exact_extract(list_wa$wdp_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(wdp_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$dom, wdp_dom, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$ind, wdp_ind, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$irr, wdp_irr, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$liv, wdp_liv, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$tot, wdp_tot, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wa$wdp_n, adm1, fun = "mean", append_cols = "ADM1CD_c", progress = TRUE) |> rename(wdp_n = mean), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$dom, wdp_dom, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$ind, wdp_ind, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$irr, wdp_irr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$liv, wdp_liv, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$wdp_n, wdp_weights$tot, wdp_tot, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
   # freshwater quantity target (fqt)
-  left_join(exact_extract(list_wa$fqt_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(fqt_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$agr, fqt_agr, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$dom, fqt_dom, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$ind, fqt_ind, adm1, "GID_1"), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$tot, fqt_tot, adm1, "GID_1"), by = "GID_1") |> 
+  left_join(exact_extract(list_wa$fqt_n, adm1, fun = "mean", append_cols = "ADM1CD_c", progress = TRUE) |> rename(fqt_n = mean), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$agr, fqt_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$dom, fqt_dom, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$ind, fqt_ind, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wa$fqt_n, fqt_weights$tot, fqt_tot, adm1, "ADM1CD_c"), by = "ADM1CD_c") |> 
   # coastal eutrophication potential (cep)
-  left_join(exact_extract(list_wp$cep_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(cep_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wp$cep_n, wp_weights, cep_agr, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wp$cep_n, adm1, fun = "mean", append_cols = "ADM1CD_c", progress = TRUE) |> rename(cep_n = mean), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wp$cep_n, wp_weights, cep_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
   # nitrate-nitrite concentration (nox)
-  left_join(exact_extract(list_wp$nox_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(nox_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm1, "GID_1"), by = "GID_1") |>
+  left_join(exact_extract(list_wp$nox_n, adm1, fun = "mean", append_cols = "ADM1CD_c", progress = TRUE) |> rename(nox_n = mean), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wp$nox_n, wp_weights, nox_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
   # periphyton growth potential (pgp)
-  left_join(exact_extract(list_wp$pgp_n, adm1, fun = "mean", append_cols = "GID_1", progress = TRUE) |> rename(pgp_n = mean), by = "GID_1") |>
-  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm1, "GID_1"), by = "GID_1") |>
-  
+  left_join(exact_extract(list_wp$pgp_n, adm1, fun = "mean", append_cols = "ADM1CD_c", progress = TRUE) |> rename(pgp_n = mean), by = "ADM1CD_c") |>
+  left_join(aggregate_to_adm(list_wp$pgp_n, wp_weights, pgp_agr, adm1, "ADM1CD_c"), by = "ADM1CD_c") |>
   mutate(across(where(is.numeric), ~ round(.x, 1))) |> 
   rowwise() |> 
   mutate(
@@ -463,7 +450,7 @@ write_rds(son_water_adm0, here(params$version, "outputs", "adm_level", "sbtn_son
 *Sub-national level*
 
 ```{r}
-write_rds(son_water_adm1, here("outputs", "adm_level", "sbtn_son_water_v2_adm1.rds"))
+write_rds(son_water_adm1, here(params$version, "outputs", "adm_level", "sbtn_son_water_v2_adm1.rds"))
 ```
 
 ```{r}
